@@ -45,7 +45,6 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
     { icon: Users, label: "Students", path: "/admin/students" },
-    { icon: HelpCircle, label: "Quizzes & Assignments", path: "/admin/quizzes" },
     { icon: UserCheck, label: "Enrollments", path: "/admin/enrollments" },
     { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
     { icon: Clock, label: "Manage Assignments", path: "/admin/manage-assignments" },

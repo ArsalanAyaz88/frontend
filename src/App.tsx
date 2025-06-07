@@ -18,7 +18,6 @@ import StudentProfile from "./pages/student/Profile";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminCourses from "./pages/admin/Courses";
 import AdminStudents from "./pages/admin/Students";
-import AdminQuizzes from "./pages/admin/Quizzes";
 import AdminEnrollments from "./pages/admin/Enrollments";
 import AdminAnalytics from "./pages/admin/Analytics";
 import ManageAssignments from "./pages/admin/ManageAssignments";
@@ -52,7 +51,6 @@ const App = () => (
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/courses" element={<AdminCourses />} />
           <Route path="/admin/students" element={<AdminStudents />} />
-          <Route path="/admin/quizzes" element={<AdminQuizzes />} />
           <Route path="/admin/enrollments" element={<AdminEnrollments />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/manage-assignments" element={<ManageAssignments />} />

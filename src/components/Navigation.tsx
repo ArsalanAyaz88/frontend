@@ -4,6 +4,13 @@ import { Button } from "./ui/button";
 import { GraduationCap } from "lucide-react";
 
 const Navigation = () => {
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <nav className="fixed top-0 w-full z-50 glass-card border-b border-border/50">
       <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -16,9 +23,24 @@ const Navigation = () => {
         
         <div className="hidden md:flex items-center space-x-8">
           <Link to="/" className="nav-link">Home</Link>
-          <Link to="#courses" className="nav-link">Courses</Link>
-          <Link to="#about" className="nav-link">About</Link>
-          <Link to="#contact" className="nav-link">Contact</Link>
+          <button 
+            onClick={() => scrollToSection('courses')} 
+            className="nav-link cursor-pointer"
+          >
+            Courses
+          </button>
+          <button 
+            onClick={() => scrollToSection('about')} 
+            className="nav-link cursor-pointer"
+          >
+            About
+          </button>
+          <button 
+            onClick={() => scrollToSection('contact')} 
+            className="nav-link cursor-pointer"
+          >
+            Contact
+          </button>
         </div>
         
         <div className="flex items-center space-x-4">
