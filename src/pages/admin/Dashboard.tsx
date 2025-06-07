@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Users, BookOpen, TrendingUp, DollarSign, Play, Eye, MessageCircle, Bell, CheckCircle, Clock, AlertTriangle, FileText } from "lucide-react";
 
 const AdminDashboard = () => {
@@ -143,6 +144,7 @@ const AdminDashboard = () => {
   const pendingAssignments = 12;
   const pendingQuizzes = 8;
   const pendingEnrollments = 5;
+  const unreadNotifications = notifications.filter(n => n.priority === 'high').length;
 
   return (
     <DashboardLayout userType="admin">
@@ -153,7 +155,62 @@ const AdminDashboard = () => {
             <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
             <p className="text-muted-foreground">Welcome back! Here's what's happening with your platform.</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex items-center space-x-3">
+            {/* Notifications Icon */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="relative">
+                  <Bell className="h-4 w-4" />
+                  {unreadNotifications > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 bg-red-500 text-white text-xs flex items-center justify-center">
+                      {unreadNotifications}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-96 max-h-96 overflow-y-auto" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Notifications</h3>
+                    <Badge className="bg-red-500/20 text-red-500">
+                      {unreadNotifications} urgent
+                    </Badge>
+                  </div>
+                  
+                  {notifications.map((notification) => {
+                    const IconComponent = getNotificationIcon(notification.type);
+                    return (
+                      <div key={notification.id} className={`p-3 rounded-lg border-l-4 ${getPriorityColor(notification.priority)}`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <IconComponent className="h-4 w-4" />
+                            <p className="text-sm font-medium">{notification.title}</p>
+                          </div>
+                          <Badge 
+                            variant={notification.priority === 'high' ? 'destructive' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {notification.priority}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">{notification.message}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">{notification.time}</p>
+                          <Button variant="ghost" size="sm" className="text-xs h-6">
+                            {notification.action}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  <Button variant="outline" className="w-full" size="sm">
+                    View All Notifications
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Button variant="outline">
               <Eye className="mr-2 h-4 w-4" />
               View Site
@@ -189,12 +246,7 @@ const AdminDashboard = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { icon: Users, label: "Total Students", value: "2,847", growth: "+12%", color: "text-blue-500" },
-            { icon: BookOpen, label: "Active Courses", value: "24", growth: "+3", color: "text-green-500" },
-            { icon: TrendingUp, label: "Completion Rate", value: "87%", growth: "+5%", color: "text-purple-500" },
-            { icon: DollarSign, label: "Revenue", value: "$45,230", growth: "+18%", color: "text-yellow-500" }
-          ].map((stat) => (
+          {stats.map((stat) => (
             <Card key={stat.label} className="glass-card p-6 hover:neon-glow transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
@@ -208,155 +260,85 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Course Performance */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="glass-card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold">Course Performance</h3>
-                <Button variant="outline" size="sm">View All</Button>
-              </div>
-              <div className="space-y-4">
-                {recentCourses.map((course) => (
-                  <div key={course.id} className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{course.title}</h4>
-                        <Badge 
-                          className={course.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}
-                        >
-                          {course.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">by {course.instructor}</p>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Students: </span>
-                          <span className="font-medium">{course.students}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Revenue: </span>
-                          <span className="font-medium text-green-500">{course.revenue}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Progress: </span>
-                          <span className="font-medium">{course.progress}%</span>
-                        </div>
-                      </div>
-                      <Progress value={course.progress} className="h-2 mt-2" />
+          <Card className="glass-card p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold">Course Performance</h3>
+              <Button variant="outline" size="sm">View All</Button>
+            </div>
+            <div className="space-y-4">
+              {recentCourses.map((course) => (
+                <div key={course.id} className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium">{course.title}</h4>
+                      <Badge 
+                        className={course.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}
+                      >
+                        {course.status}
+                      </Badge>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <Play className="h-4 w-4" />
-                    </Button>
+                    <p className="text-sm text-muted-foreground mb-2">by {course.instructor}</p>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Students: </span>
+                        <span className="font-medium">{course.students}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Revenue: </span>
+                        <span className="font-medium text-green-500">{course.revenue}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Progress: </span>
+                        <span className="font-medium">{course.progress}%</span>
+                      </div>
+                    </div>
+                    <Progress value={course.progress} className="h-2 mt-2" />
                   </div>
-                ))}
-              </div>
-            </Card>
+                  <Button variant="ghost" size="sm">
+                    <Play className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
 
-            {/* Recent Students */}
-            <Card className="glass-card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold">Recent Students</h3>
-                <Button variant="outline" size="sm">View All</Button>
-              </div>
-              <div className="space-y-4">
-                {recentStudents.map((student, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
-                    <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary">
-                        {student.name.split(' ').map(n => n[0]).join('')}
-                      </span>
+          {/* Recent Students */}
+          <Card className="glass-card p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold">Recent Students</h3>
+              <Button variant="outline" size="sm">View All</Button>
+            </div>
+            <div className="space-y-4">
+              {recentStudents.map((student, index) => (
+                <div key={index} className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-primary">
+                      {student.name.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium">{student.name}</h4>
+                    <p className="text-sm text-muted-foreground">{student.email}</p>
+                  </div>
+                  <div className="text-right text-sm">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-muted-foreground">{student.courses} courses</span>
+                      <Badge 
+                        className={student.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}
+                      >
+                        {student.status}
+                      </Badge>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium">{student.name}</h4>
-                      <p className="text-sm text-muted-foreground">{student.email}</p>
-                    </div>
-                    <div className="text-right text-sm">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="text-muted-foreground">{student.courses} courses</span>
-                        <Badge 
-                          className={student.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}
-                        >
-                          {student.status}
-                        </Badge>
-                      </div>
-                      <div className="text-muted-foreground">
-                        Joined {new Date(student.joinDate).toLocaleDateString()}
-                      </div>
+                    <div className="text-muted-foreground">
+                      Joined {new Date(student.joinDate).toLocaleDateString()}
                     </div>
                   </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-
-          {/* Notifications & Quick Actions Sidebar */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <Card className="glass-card p-6">
-              <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  Create New Course
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Review Assignments
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Check Quizzes
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Users className="mr-2 h-4 w-4" />
-                  Manage Enrollments
-                </Button>
-              </div>
-            </Card>
-
-            {/* Notifications */}
-            <Card className="glass-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Recent Notifications</h3>
-                <Badge className="bg-red-500/20 text-red-500">
-                  {notifications.filter(n => n.priority === 'high').length} urgent
-                </Badge>
-              </div>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {notifications.map((notification) => {
-                  const IconComponent = getNotificationIcon(notification.type);
-                  return (
-                    <div key={notification.id} className={`p-3 rounded-lg border-l-4 ${getPriorityColor(notification.priority)}`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <IconComponent className="h-4 w-4" />
-                          <p className="text-sm font-medium">{notification.title}</p>
-                        </div>
-                        <Badge 
-                          variant={notification.priority === 'high' ? 'destructive' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {notification.priority}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">{notification.message}</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">{notification.time}</p>
-                        <Button variant="ghost" size="sm" className="text-xs h-6">
-                          {notification.action}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <Button variant="outline" className="w-full mt-4" size="sm">
-                <Bell className="mr-2 h-4 w-4" />
-                View All Notifications
-              </Button>
-            </Card>
-          </div>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       </div>
     </DashboardLayout>
