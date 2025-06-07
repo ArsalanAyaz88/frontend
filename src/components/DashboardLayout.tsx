@@ -1,4 +1,3 @@
-
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { 
@@ -14,7 +13,8 @@ import {
   Users,
   BarChart3,
   Menu,
-  X
+  X,
+  UserCheck
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +43,8 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
     { icon: Users, label: "Students", path: "/admin/students" },
+    { icon: HelpCircle, label: "Quizzes & Assignments", path: "/admin/quizzes" },
+    { icon: UserCheck, label: "Enrollments", path: "/admin/enrollments" },
     { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
   ];
 
