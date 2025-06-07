@@ -21,6 +21,8 @@ import AdminStudents from "./pages/admin/Students";
 import AdminQuizzes from "./pages/admin/Quizzes";
 import AdminEnrollments from "./pages/admin/Enrollments";
 import AdminAnalytics from "./pages/admin/Analytics";
+import ManageAssignments from "./pages/admin/ManageAssignments";
+import ManageQuizzes from "./pages/admin/ManageQuizzes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +55,8 @@ const App = () => (
           <Route path="/admin/quizzes" element={<AdminQuizzes />} />
           <Route path="/admin/enrollments" element={<AdminEnrollments />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
+          <Route path="/admin/manage-assignments" element={<ManageAssignments />} />
+          <Route path="/admin/manage-quizzes" element={<ManageQuizzes />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>

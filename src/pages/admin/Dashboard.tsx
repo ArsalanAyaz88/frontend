@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Users, BookOpen, TrendingUp, DollarSign, Play, Eye, MessageCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Users, BookOpen, TrendingUp, DollarSign, Play, Eye, MessageCircle, Bell, CheckCircle, Clock, AlertTriangle, FileText } from "lucide-react";
 
 const AdminDashboard = () => {
   const stats = [
@@ -72,11 +73,76 @@ const AdminDashboard = () => {
   ];
 
   const notifications = [
-    { type: "payment", message: "New payment received from Alex Johnson", time: "2 min ago" },
-    { type: "review", message: "New 5-star review on ML Fundamentals course", time: "15 min ago" },
-    { type: "question", message: "Student question on React Components lesson", time: "1 hour ago" },
-    { type: "enrollment", message: "5 new students enrolled today", time: "2 hours ago" }
+    { 
+      id: 1,
+      type: "assignment", 
+      title: "New Assignment Submission",
+      message: "Alex Johnson submitted 'React Components Project'", 
+      time: "2 min ago",
+      priority: "high",
+      action: "Review Now"
+    },
+    { 
+      id: 2,
+      type: "quiz", 
+      title: "Quiz Completed",
+      message: "Sarah Miller completed 'JavaScript Fundamentals Quiz' - Score: 85%", 
+      time: "15 min ago",
+      priority: "medium",
+      action: "View Results"
+    },
+    { 
+      id: 3,
+      type: "enrollment", 
+      title: "New Enrollment Request",
+      message: "Mike Wilson requested enrollment in ML Fundamentals", 
+      time: "1 hour ago",
+      priority: "high",
+      action: "Review"
+    },
+    { 
+      id: 4,
+      type: "payment", 
+      title: "Payment Received",
+      message: "Emma Davis paid for Digital Marketing course", 
+      time: "2 hours ago",
+      priority: "low",
+      action: "Confirm"
+    },
+    { 
+      id: 5,
+      type: "question", 
+      title: "Student Question",
+      message: "John Smith asked about React Hooks lesson", 
+      time: "3 hours ago",
+      priority: "medium",
+      action: "Reply"
+    }
   ];
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'assignment': return FileText;
+      case 'quiz': return CheckCircle;
+      case 'enrollment': return Users;
+      case 'payment': return DollarSign;
+      case 'question': return MessageCircle;
+      default: return Bell;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'border-l-red-500 bg-red-500/5';
+      case 'medium': return 'border-l-yellow-500 bg-yellow-500/5';
+      case 'low': return 'border-l-green-500 bg-green-500/5';
+      default: return 'border-l-blue-500 bg-blue-500/5';
+    }
+  };
+
+  const pendingAssignments = 12;
+  const pendingQuizzes = 8;
+  const pendingEnrollments = 5;
 
   return (
     <DashboardLayout userType="admin">
@@ -99,9 +165,36 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        {/* Priority Alerts */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Alert className="border-orange-500/50 bg-orange-500/10">
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            <AlertDescription>
+              <strong>{pendingAssignments}</strong> assignments waiting for review
+            </AlertDescription>
+          </Alert>
+          <Alert className="border-blue-500/50 bg-blue-500/10">
+            <Clock className="h-4 w-4 text-blue-500" />
+            <AlertDescription>
+              <strong>{pendingQuizzes}</strong> quiz results to check
+            </AlertDescription>
+          </Alert>
+          <Alert className="border-purple-500/50 bg-purple-500/10">
+            <Users className="h-4 w-4 text-purple-500" />
+            <AlertDescription>
+              <strong>{pendingEnrollments}</strong> enrollment requests pending
+            </AlertDescription>
+          </Alert>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat) => (
+          {[
+            { icon: Users, label: "Total Students", value: "2,847", growth: "+12%", color: "text-blue-500" },
+            { icon: BookOpen, label: "Active Courses", value: "24", growth: "+3", color: "text-green-500" },
+            { icon: TrendingUp, label: "Completion Rate", value: "87%", growth: "+5%", color: "text-purple-500" },
+            { icon: DollarSign, label: "Revenue", value: "$45,230", growth: "+18%", color: "text-yellow-500" }
+          ].map((stat) => (
             <Card key={stat.label} className="glass-card p-6 hover:neon-glow transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
@@ -197,7 +290,7 @@ const AdminDashboard = () => {
             </Card>
           </div>
 
-          {/* Sidebar */}
+          {/* Notifications & Quick Actions Sidebar */}
           <div className="space-y-6">
             {/* Quick Actions */}
             <Card className="glass-card p-6">
@@ -208,31 +301,60 @@ const AdminDashboard = () => {
                   Create New Course
                 </Button>
                 <Button className="w-full justify-start" variant="outline">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Review Assignments
+                </Button>
+                <Button className="w-full justify-start" variant="outline">
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Check Quizzes
+                </Button>
+                <Button className="w-full justify-start" variant="outline">
                   <Users className="mr-2 h-4 w-4" />
-                  Manage Students
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <TrendingUp className="mr-2 h-4 w-4" />
-                  View Analytics
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Check Messages
+                  Manage Enrollments
                 </Button>
               </div>
             </Card>
 
-            {/* Recent Notifications */}
+            {/* Notifications */}
             <Card className="glass-card p-6">
-              <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                {notifications.map((notification, index) => (
-                  <div key={index} className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-sm font-medium mb-1">{notification.message}</p>
-                    <p className="text-xs text-muted-foreground">{notification.time}</p>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Recent Notifications</h3>
+                <Badge className="bg-red-500/20 text-red-500">
+                  {notifications.filter(n => n.priority === 'high').length} urgent
+                </Badge>
               </div>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {notifications.map((notification) => {
+                  const IconComponent = getNotificationIcon(notification.type);
+                  return (
+                    <div key={notification.id} className={`p-3 rounded-lg border-l-4 ${getPriorityColor(notification.priority)}`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <IconComponent className="h-4 w-4" />
+                          <p className="text-sm font-medium">{notification.title}</p>
+                        </div>
+                        <Badge 
+                          variant={notification.priority === 'high' ? 'destructive' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {notification.priority}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">{notification.message}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">{notification.time}</p>
+                        <Button variant="ghost" size="sm" className="text-xs h-6">
+                          {notification.action}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <Button variant="outline" className="w-full mt-4" size="sm">
+                <Bell className="mr-2 h-4 w-4" />
+                View All Notifications
+              </Button>
             </Card>
           </div>
         </div>

@@ -14,7 +14,9 @@ import {
   BarChart3,
   Menu,
   X,
-  UserCheck
+  UserCheck,
+  CheckCircle,
+  Clock
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +48,8 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
     { icon: HelpCircle, label: "Quizzes & Assignments", path: "/admin/quizzes" },
     { icon: UserCheck, label: "Enrollments", path: "/admin/enrollments" },
     { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
+    { icon: Clock, label: "Manage Assignments", path: "/admin/manage-assignments" },
+    { icon: CheckCircle, label: "Manage Quizzes", path: "/admin/manage-quizzes" },
   ];
 
   const menuItems = userType === "student" ? studentMenuItems : adminMenuItems;
@@ -107,7 +111,13 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
           </Button>
           <Button 
             variant="ghost" 
-            onClick={handleLogout}
+            onClick={() => {
+              toast({
+                title: "Logged Out",
+                description: "You have been successfully logged out.",
+              });
+              navigate("/");
+            }}
             className="w-full justify-start text-muted-foreground hover:text-destructive"
           >
             <LogOut className="mr-3 h-5 w-5" />
