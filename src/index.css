@@ -95,3 +95,8 @@
     @apply bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25;
   }
 }
+
+/* Fix for Radix Tabs: Hide inactive content panels */
+[role='tabpanel'][data-state='inactive'] {
+  display: none;
+}

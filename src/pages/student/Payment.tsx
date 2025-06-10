@@ -1,6 +1,5 @@
-
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,9 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, CreditCard, FileText, CheckCircle, Clock, X } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 const Payment = () => {
+  const location = useLocation();
+  const { courseTitle, coursePrice } = location.state || {}; // Get data from navigation state
+
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const { toast } = useToast();
 
@@ -103,237 +106,161 @@ const Payment = () => {
 
   return (
     <DashboardLayout userType="student">
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Payment Management</h1>
-          <p className="text-muted-foreground">Manage your course payments and upload payment proofs</p>
-        </div>
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+        <h1 className="text-3xl font-bold mb-6">Payment & Billing</h1>
 
-        {/* Payment Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {paymentHistory.filter(p => p.status === 'approved').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Approved</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {paymentHistory.filter(p => p.status === 'pending').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Pending</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center">
-                <X className="h-6 w-6 text-red-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {paymentHistory.filter(p => p.status === 'rejected').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Rejected</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  ${paymentHistory.filter(p => p.status === 'approved').reduce((sum, p) => sum + parseInt(p.amount.replace('$', '')), 0)}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Paid</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="upload" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="upload">Upload Payment Proof</TabsTrigger>
-            <TabsTrigger value="history">Payment History</TabsTrigger>
-            <TabsTrigger value="pending">Pending Courses</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="upload" className="space-y-6">
-            <Card className="glass-card p-8">
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">Upload Payment Proof</h3>
-                  <p className="text-muted-foreground">
-                    Upload your payment receipt or transaction proof for course enrollment verification.
-                  </p>
+        {courseTitle && coursePrice !== undefined && (
+          <Card className="mb-8 bg-primary/5 border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-xl">Enrollment Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <div className="mb-4 sm:mb-0">
+                  <p className="text-sm text-muted-foreground">You are enrolling in:</p>
+                  <p className="text-lg font-semibold">{courseTitle}</p>
                 </div>
+                <div className="text-left sm:text-right">
+                  <p className="text-sm text-muted-foreground">Price:</p>
+                  <p className="text-2xl font-bold text-primary">{coursePrice > 0 ? `$${coursePrice}` : 'Free'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-                <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <Card>
+              <Tabs defaultValue="card">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="card">Pay with Card</TabsTrigger>
+                  <TabsTrigger value="transfer">Bank Transfer</TabsTrigger>
+                </TabsList>
+                <TabsContent value="card" className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Credit/Debit Card Details</h3>
                   <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="course-select">Select Course</Label>
-                      <select className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg">
-                        <option value="">Choose a course...</option>
-                        {pendingCourses.map(course => (
-                          <option key={course.id} value={course.id}>{course.title}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="payment-method">Payment Method</Label>
-                      <select className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-lg">
-                        <option value="">Select payment method...</option>
-                        <option value="bank-transfer">Bank Transfer</option>
-                        <option value="credit-card">Credit Card</option>
-                        <option value="paypal">PayPal</option>
-                        <option value="crypto">Cryptocurrency</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="transaction-id">Transaction ID</Label>
-                      <Input 
-                        id="transaction-id"
-                        placeholder="Enter transaction ID"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="amount">Amount Paid</Label>
-                      <Input 
-                        id="amount"
-                        placeholder="$0.00"
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="file-upload">Upload Receipt/Proof</Label>
-                      <div className="mt-1 border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                        <input
-                          id="file-upload"
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                        <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground mb-2">
-                          {uploadedFile ? uploadedFile.name : 'Click to upload or drag and drop'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">PNG, JPG, PDF up to 10MB</p>
-                        <Button 
-                          variant="outline" 
-                          className="mt-4"
-                          onClick={() => document.getElementById('file-upload')?.click()}
-                        >
-                          Choose File
-                        </Button>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input id="firstName" placeholder="John" />
+                      </div>
+                      <div>
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input id="lastName" placeholder="Doe" />
                       </div>
                     </div>
-
                     <div>
-                      <Label htmlFor="notes">Additional Notes</Label>
-                      <Textarea 
-                        id="notes"
-                        placeholder="Any additional information about the payment..."
-                        className="mt-1"
-                        rows={4}
-                      />
+                      <Label htmlFor="cardNumber">Card Number</Label>
+                      <Input id="cardNumber" placeholder="**** **** **** 1234" />
                     </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="expiryMonth">Expiry Month</Label>
+                        <Input id="expiryMonth" placeholder="MM" />
+                      </div>
+                      <div>
+                        <Label htmlFor="expiryYear">Expiry Year</Label>
+                        <Input id="expiryYear" placeholder="YYYY" />
+                      </div>
+                      <div>
+                        <Label htmlFor="cvc">CVC</Label>
+                        <Input id="cvc" placeholder="123" />
+                      </div>
+                    </div>
+                    <Button className="w-full">Pay Now</Button>
                   </div>
-                </div>
-
-                <div className="flex justify-end space-x-4">
-                  <Button variant="outline">Save Draft</Button>
-                  <Button className="btn-neon" onClick={handleSubmitProof}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Submit Payment Proof
-                  </Button>
-                </div>
-              </div>
+                </TabsContent>
+                <TabsContent value="transfer" className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Bank Transfer Details</h3>
+                  <div className="space-y-2 text-sm bg-muted p-4 rounded-lg">
+                    <p><strong>Bank Name:</strong> EduVerse National Bank</p>
+                    <p><strong>Account Name:</strong> EduVerse Inc.</p>
+                    <p><strong>Account Number:</strong> 123-456-7890</p>
+                    <p><strong>IBAN:</strong> EV12 3456 7890 1234 5678</p>
+                    <p><strong>SWIFT Code:</strong> EDUVUS33</p>
+                  </div>
+                  <div className="mt-6">
+                    <Label htmlFor="proof" className="text-base font-semibold">Upload Payment Proof</Label>
+                    <div className="mt-2 flex items-center justify-center w-full">
+                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <Upload className="w-10 h-10 mb-3 text-muted-foreground" />
+                          {uploadedFile ? (
+                            <p className="font-semibold text-primary">{uploadedFile.name}</p>
+                          ) : (
+                            <>
+                              <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                              <p className="text-xs text-muted-foreground">PNG, JPG, or PDF (MAX. 5MB)</p>
+                            </>
+                          )}
+                        </div>
+                        <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileUpload} />
+                      </label>
+                    </div>
+                    <Button className="w-full mt-4" onClick={handleSubmitProof} disabled={!uploadedFile}>Submit Proof</Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-4">
-            {paymentHistory.map((payment) => (
-              <Card key={payment.id} className="glass-card p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center space-x-3">
-                      <h3 className="font-semibold">{payment.course}</h3>
-                      <Badge className={getStatusColor(payment.status)}>
-                        {getStatusIcon(payment.status)}
-                        <span className="ml-1 capitalize">{payment.status}</span>
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                      <span>Amount: <span className="font-medium text-foreground">{payment.amount}</span></span>
-                      <span>Date: {new Date(payment.date).toLocaleDateString()}</span>
-                      <span>Method: {payment.paymentMethod}</span>
-                      <span>ID: {payment.transactionId}</span>
+          </div>
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Pending Courses</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {pendingCourses.map(course => (
+                  <div key={course.id} className="flex items-center space-x-4">
+                    <img src={course.image} alt={course.title} className="h-16 w-16 rounded-lg object-cover" />
+                    <div>
+                      <p className="font-semibold">{course.title}</p>
+                      <p className="text-sm text-muted-foreground">{course.price}</p>
                     </div>
                   </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">View Receipt</Button>
-                    {payment.status === 'rejected' && (
-                      <Button size="sm" className="btn-neon">Resubmit</Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </TabsContent>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-          <TabsContent value="pending" className="space-y-4">
-            {pendingCourses.map((course) => (
-              <Card key={course.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-                <div className="flex items-center space-x-4">
-                  <img 
-                    src={course.image}
-                    alt={course.title}
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">{course.title}</h3>
-                    <p className="text-muted-foreground text-sm mb-2">by {course.instructor}</p>
-                    <p className="text-2xl font-bold text-primary">{course.price}</p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline">View Details</Button>
-                    <Button className="btn-neon">
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Pay Now
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </TabsContent>
-        </Tabs>
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FileText className="h-5 w-5 mr-2" />
+              Payment History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-muted">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Course</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-background divide-y divide-muted">
+                  {paymentHistory.map((payment) => (
+                    <tr key={payment.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{payment.course}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{payment.amount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{payment.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <Badge className={`${getStatusColor(payment.status)}`}>
+                          {getStatusIcon(payment.status)}
+                          <span className="ml-1.5">{payment.status}</span>
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
