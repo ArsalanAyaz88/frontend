@@ -12,32 +12,49 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [userType, setUserType] = useState<"student" | "admin">("student");
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Demo login logic
-    if (email && password) {
-      toast({
-        title: "Login Successful!",
-        description: `Welcome back to EduVerse!`,
+    setIsLoading(true);
+
+    const formData = new FormData();
+    formData.append('username', email);
+    formData.append('password', password);
+
+    try {
+      const response = await fetch('/api/auth/token', {
+        method: 'POST',
+        body: formData,
       });
-      
-      // Redirect based on user type
-      if (userType === "admin") {
-        navigate("/admin/dashboard");
-      } else {
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('accessToken', data.access_token);
+        toast({
+          title: "Login Successful!",
+          description: `Welcome back to EduVerse!`,
+        });
         navigate("/student/dashboard");
+      } else {
+        toast({
+          title: "Login Failed",
+          description: data.detail || "Invalid credentials",
+          variant: "destructive",
+        });
       }
-    } else {
+    } catch (error) {
       toast({
         title: "Error",
-        description: "Please fill in all fields.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -112,8 +129,8 @@ const Login = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full btn-neon">
-              Sign In
+            <Button type="submit" className="w-full btn-neon" disabled={isLoading}>
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
 
             <div className="text-center">

@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api': {
+        target: 'https://student-portal-two-pearl.vercel.app',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   plugins: [
     react(),

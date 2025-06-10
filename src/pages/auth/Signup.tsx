@@ -17,10 +17,11 @@ const Signup = () => {
     confirmPassword: ""
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
@@ -32,18 +33,51 @@ const Signup = () => {
       return;
     }
 
-    if (Object.values(formData).every(field => field)) {
-      toast({
-        title: "Account Created!",
-        description: "Welcome to EduVerse! Please check your email to verify your account.",
-      });
-      navigate("/student/dashboard");
-    } else {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
       toast({
         title: "Error",
         description: "Please fill in all fields.",
         variant: "destructive",
       });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Account Created!",
+          description: "Welcome to EduVerse! Please login to continue.",
+        });
+        navigate("/login");
+      } else {
+        toast({
+          title: "Signup Failed",
+          description: data.message || "An error occurred during signup.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -142,8 +176,8 @@ const Signup = () => {
               />
             </div>
 
-            <Button type="submit" className="w-full btn-neon">
-              Create Account
+            <Button type="submit" className="w-full btn-neon" disabled={isLoading}>
+              {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
 
             <div className="text-center text-muted-foreground">
