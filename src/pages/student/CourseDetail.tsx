@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { CheckCircle, PlayCircle, Loader2, Target, BookOpen, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import { Badge } from "@/components/ui/badge";
 
 // Types
@@ -46,19 +47,14 @@ const CourseDetail = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('accessToken');
-        const headers = { 'Authorization': `Bearer ${token}` };
-
         const [courseRes, videosRes] = await Promise.all([
-          fetch(`/api/courses/explore-courses/${courseId}`, { headers }),
-          fetch(`/api/courses/my-courses/${courseId}/videos`, { headers })
+          fetchWithAuth(`/api/courses/explore-courses/${courseId}`),
+          fetchWithAuth(`/api/courses/my-courses/${courseId}/videos`)
         ]);
 
-        if (!courseRes.ok) throw new Error('Failed to fetch course details.');
-        // Videos might not be available if not enrolled, so don't throw an error, just handle it gracefully
-        
-        const courseData = await courseRes.json();
-        const videosData = videosRes.ok ? await videosRes.json() : [];
+        const courseData = await handleApiResponse(courseRes);
+        // Videos might not be available if not enrolled, so handle 404 gracefully
+        const videosData = videosRes.ok ? await handleApiResponse(videosRes) : [];
 
         setCourse(courseData);
         setVideos(videosData);
@@ -74,8 +70,13 @@ const CourseDetail = () => {
         }
 
       } catch (err: any) {
-        setError(err.message);
-        toast({ title: "Error", description: err.message, variant: "destructive" });
+        if (err instanceof UnauthorizedError) {
+          toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
+          navigate('/login');
+        } else {
+          setError(err.message);
+          toast({ title: "Error", description: err.message, variant: "destructive" });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -86,18 +87,21 @@ const CourseDetail = () => {
 
   const handleMarkComplete = async (videoId: string) => {
     try {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch(`/api/courses/videos/${videoId}/complete`, {
+        const response = await fetchWithAuth(`/api/courses/videos/${videoId}/complete`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
         });
 
-        if (!response.ok) throw new Error('Failed to mark video as complete.');
+        await handleApiResponse(response);
 
         setVideos(videos.map(v => v.id === videoId ? { ...v, watched: true } : v));
         toast({ title: "Success", description: "Video marked as complete!" });
     } catch (err: any) {
-        toast({ title: "Error", description: err.message, variant: "destructive" });
+        if (err instanceof UnauthorizedError) {
+          toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
+          navigate('/login');
+        } else {
+          toast({ title: "Error", description: err.message, variant: "destructive" });
+        }
     }
   };
 

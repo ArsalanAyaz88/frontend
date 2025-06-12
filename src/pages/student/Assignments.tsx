@@ -1,235 +1,178 @@
-
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, FileText, CheckCircle, AlertTriangle } from "lucide-react";
+import { Calendar, CheckCircle, FileText, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { fetchWithAuth, handleApiResponse, UnauthorizedError } from "@/lib/api";
+
+// Define types for our data
+interface Assignment {
+  id: string;
+  title: string;
+  description: string;
+  due_date: string;
+  course_id: string;
+  course_title: string; 
+  status: 'pending' | 'submitted' | 'graded';
+}
 
 const Assignments = () => {
-  const pendingAssignments = [
-    {
-      id: 1,
-      title: "React Component Project",
-      course: "Complete Web Development Bootcamp",
-      description: "Build a responsive portfolio website using React components",
-      dueDate: "2024-01-15",
-      priority: "high",
-      estimatedTime: "4 hours",
-      type: "Project"
-    },
-    {
-      id: 2,
-      title: "ML Algorithm Analysis",
-      course: "Machine Learning Fundamentals",
-      description: "Compare and analyze different machine learning algorithms",
-      dueDate: "2024-01-18",
-      priority: "medium",
-      estimatedTime: "3 hours",
-      type: "Report"
-    },
-    {
-      id: 3,
-      title: "CSS Grid Layout Exercise",
-      course: "Complete Web Development Bootcamp",
-      description: "Create responsive layouts using CSS Grid",
-      dueDate: "2024-01-20",
-      priority: "low",
-      estimatedTime: "2 hours",
-      type: "Exercise"
-    }
-  ];
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const submittedAssignments = [
-    {
-      id: 4,
-      title: "JavaScript Functions Workshop",
-      course: "Complete Web Development Bootcamp",
-      submittedDate: "2024-01-10",
-      grade: "A",
-      feedback: "Excellent work! Your code is clean and well-documented.",
-      type: "Exercise"
-    },
-    {
-      id: 5,
-      title: "Data Visualization Project",
-      course: "Machine Learning Fundamentals",
-      submittedDate: "2024-01-08",
-      grade: "B+",
-      feedback: "Good analysis, could improve chart readability.",
-      type: "Project"
-    }
-  ];
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const coursesRes = await fetchWithAuth('/api/courses/my-courses');
+        const enrolledCourses = await handleApiResponse(coursesRes);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-500/20 text-red-500 border-red-500/50';
-      case 'medium': return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50';
-      case 'low': return 'bg-green-500/20 text-green-500 border-green-500/50';
-      default: return 'bg-gray-500/20 text-gray-500 border-gray-500/50';
-    }
-  };
+        if (!Array.isArray(enrolledCourses) || enrolledCourses.length === 0) {
+          setAssignments([]);
+          setIsLoading(false);
+          return;
+        }
 
-  const getGradeColor = (grade: string) => {
-    if (grade.startsWith('A')) return 'text-green-500';
-    if (grade.startsWith('B')) return 'text-blue-500';
-    if (grade.startsWith('C')) return 'text-yellow-500';
-    return 'text-red-500';
-  };
+        const assignmentsPromises = enrolledCourses.map(async (course: any) => {
+          try {
+            const assignmentsRes = await fetchWithAuth(`/api/courses/${course.id}/assignments`);
+            const courseAssignments = await handleApiResponse(assignmentsRes);
+            return courseAssignments.map((assignment: any) => ({
+              ...assignment,
+              course_id: course.id,
+              course_title: course.title,
+            }));
+          } catch (e) {
+            // Also handle UnauthorizedError here if fetching assignments fails
+            if (e instanceof UnauthorizedError) {
+                throw e; // Re-throw to be caught by the outer catch block
+            }
+            console.error(`Error processing assignments for course ${course.title}:`, e);
+            return []; // Return empty array on error to not break Promise.all
+          }
+        });
 
-  const getDaysUntilDue = (dueDate: string) => {
-    const today = new Date();
-    const due = new Date(dueDate);
-    const diffTime = due.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+        const assignmentsByCourse = await Promise.all(assignmentsPromises);
+        const allAssignments = assignmentsByCourse.flat();
+
+        setAssignments(allAssignments);
+      } catch (err: any) {
+        if (err instanceof UnauthorizedError) {
+          toast({
+            title: "Session Expired",
+            description: "Your session has expired. Please log in again.",
+            variant: "destructive",
+          });
+          navigate('/auth/login');
+        } else {
+          setError(err.message);
+          toast({
+            title: "Error",
+            description: err.message || "Could not fetch assignments.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAssignments();
+  }, [toast, navigate]);
+
+  const pendingAssignments = assignments.filter(a => a.status !== 'submitted' && a.status !== 'graded');
+  const submittedAssignments = assignments.filter(a => a.status === 'submitted' || a.status === 'graded');
+
+  const renderAssignmentCard = (assignment: Assignment) => (
+    <Card key={assignment.id} className="p-4 flex flex-col justify-between">
+      <div>
+        <div className="flex justify-between items-center mb-2">
+            <p className="text-sm text-muted-foreground">{assignment.course_title}</p>
+            <Badge variant={assignment.status === 'graded' ? 'default' : 'secondary'}>{assignment.status.toUpperCase()}</Badge>
+        </div>
+        <h3 className="text-lg font-semibold mb-2">{assignment.title}</h3>
+        <p className="text-sm mb-4 line-clamp-3">{assignment.description}</p>
+      </div>
+      <div>
+        <div className="flex items-center text-sm text-muted-foreground mb-4">
+          <Calendar className="h-4 w-4 mr-2" />
+          <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
+        </div>
+        <Link to={`/student/assignments/${assignment.course_id}/${assignment.id}`}>
+          <Button className="w-full">
+            {assignment.status === 'pending' ? 'View & Submit' : 'View Details'}
+          </Button>
+        </Link>
+      </div>
+    </Card>
+  );
+
+  if (isLoading) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-destructive mb-2">An Error Occurred</h2>
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout userType="student">
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Assignments</h1>
-          <p className="text-muted-foreground">Track your assignments and submissions</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{pendingAssignments.length}</p>
-                <p className="text-sm text-muted-foreground">Pending</p>
-              </div>
-            </div>
-          </Card>
-          
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{submittedAssignments.length}</p>
-                <p className="text-sm text-muted-foreground">Submitted</p>
-              </div>
-            </div>
-          </Card>
-          
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{pendingAssignments.length + submittedAssignments.length}</p>
-                <p className="text-sm text-muted-foreground">Total</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="pending" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="pending">Pending Assignments</TabsTrigger>
-            <TabsTrigger value="submitted">Submitted Assignments</TabsTrigger>
+      <div className="px-4 py-6 md:px-6">
+        <h1 className="text-3xl font-bold mb-6">My Assignments</h1>
+        <Tabs defaultValue="pending" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="pending">Pending ({pendingAssignments.length})</TabsTrigger>
+            <TabsTrigger value="submitted">Submitted ({submittedAssignments.length})</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="pending" className="space-y-4">
-            {pendingAssignments.map((assignment) => {
-              const daysUntilDue = getDaysUntilDue(assignment.dueDate);
-              const isOverdue = daysUntilDue < 0;
-              const isDueSoon = daysUntilDue <= 2 && daysUntilDue >= 0;
-
-              return (
-                <Card key={assignment.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="text-xl font-semibold">{assignment.title}</h3>
-                        <Badge variant="outline">{assignment.type}</Badge>
-                        <Badge className={getPriorityColor(assignment.priority)}>
-                          {assignment.priority}
-                        </Badge>
-                        {(isOverdue || isDueSoon) && (
-                          <Badge variant="destructive">
-                            <AlertTriangle className="mr-1 h-3 w-3" />
-                            {isOverdue ? 'Overdue' : 'Due Soon'}
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <p className="text-muted-foreground">{assignment.course}</p>
-                      <p className="text-foreground">{assignment.description}</p>
-                      
-                      <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>Est. {assignment.estimatedTime}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <Button variant="outline">View Details</Button>
-                      <Button className="btn-neon">Start Assignment</Button>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+          <TabsContent value="pending">
+            {pendingAssignments.length > 0 ? (
+              <div className="grid gap-6 mt-6 md:grid-cols-2 lg:grid-cols-3">
+                {pendingAssignments.map(renderAssignmentCard)}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
+                <h3 className="text-xl font-semibold mt-4">All Caught Up!</h3>
+                <p className="text-muted-foreground mt-2">You have no pending assignments.</p>
+              </div>
+            )}
           </TabsContent>
-
-          <TabsContent value="submitted" className="space-y-4">
-            {submittedAssignments.map((assignment) => (
-              <Card key={assignment.id} className="glass-card p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center space-x-3">
-                      <h3 className="text-xl font-semibold">{assignment.title}</h3>
-                      <Badge variant="outline">{assignment.type}</Badge>
-                      <Badge className="bg-green-500/20 text-green-500 border-green-500/50">
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                        Submitted
-                      </Badge>
-                    </div>
-                    
-                    <p className="text-muted-foreground">{assignment.course}</p>
-                    
-                    <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>Submitted: {new Date(assignment.submittedDate).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <span>Grade:</span>
-                        <span className={`font-semibold ${getGradeColor(assignment.grade)}`}>
-                          {assignment.grade}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {assignment.feedback && (
-                      <div className="bg-muted/50 p-4 rounded-lg">
-                        <p className="text-sm font-medium mb-1">Feedback:</p>
-                        <p className="text-sm text-muted-foreground">{assignment.feedback}</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline">View Submission</Button>
-                    <Button variant="outline">Download</Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+          <TabsContent value="submitted">
+            {submittedAssignments.length > 0 ? (
+              <div className="grid gap-6 mt-6 md:grid-cols-2 lg:grid-cols-3">
+                {submittedAssignments.map(renderAssignmentCard)}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mt-4">No Submitted Assignments</h3>
+                <p className="text-muted-foreground mt-2">Your submitted assignments will appear here.</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -238,3 +181,4 @@ const Assignments = () => {
 };
 
 export default Assignments;
+        
