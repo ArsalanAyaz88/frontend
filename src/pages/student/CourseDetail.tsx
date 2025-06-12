@@ -234,7 +234,6 @@ const CourseDetail = () => {
                 <CardContent className="p-6 space-y-4">
                     <h3 className="text-3xl font-bold text-center">{course.price > 0 ? `$${course.price}` : 'Free'}</h3>
                     <Button className="w-full btn-neon" onClick={handleEnrollNow}>Enroll Now</Button>
-                    <Button variant="outline" className="w-full">Add to Cart</Button>
                 </CardContent>
             </Card>
           </div>
