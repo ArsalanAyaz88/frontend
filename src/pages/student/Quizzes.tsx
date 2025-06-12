@@ -1,84 +1,124 @@
-
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, CheckCircle, AlertCircle, Play, Trophy, Target } from "lucide-react";
+import { Clock, CheckCircle, AlertCircle, Play, Trophy, Target, Loader2 } from "lucide-react";
+import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
+import { toast } from 'sonner';
+
+// Interfaces
+interface Quiz {
+  id: string;
+  title: string;
+  description: string;
+  course_id: string;
+  course_title: string;
+}
+
+interface Course {
+  id: string;
+  title: string;
+}
 
 const Quizzes = () => {
-  const availableQuizzes = [
-    {
-      id: 1,
-      title: "JavaScript Fundamentals Quiz",
-      course: "Complete Web Development Bootcamp",
-      questions: 20,
-      timeLimit: 30,
-      difficulty: "Beginner",
-      attempts: 0,
-      maxAttempts: 3,
-      description: "Test your knowledge of JavaScript basics including variables, functions, and objects."
-    },
-    {
-      id: 2,
-      title: "React Components Assessment",
-      course: "Complete Web Development Bootcamp",
-      questions: 15,
-      timeLimit: 25,
-      difficulty: "Intermediate",
-      attempts: 1,
-      maxAttempts: 2,
-      description: "Evaluate your understanding of React components, props, and state management."
-    },
-    {
-      id: 3,
-      title: "Machine Learning Algorithms",
-      course: "Machine Learning Fundamentals",
-      questions: 25,
-      timeLimit: 45,
-      difficulty: "Advanced",
-      attempts: 0,
-      maxAttempts: 2,
-      description: "Comprehensive test on supervised and unsupervised learning algorithms."
-    }
-  ];
+  const [availableQuizzes, setAvailableQuizzes] = useState<Quiz[]>([]);
+  const [completedQuizzes, setCompletedQuizzes] = useState<any[]>([]); // Define interface later
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const completedQuizzes = [
-    {
-      id: 4,
-      title: "HTML & CSS Basics",
-      course: "Complete Web Development Bootcamp",
-      score: 85,
-      maxScore: 100,
-      completedDate: "2024-01-10",
-      timeSpent: 18,
-      difficulty: "Beginner",
-      passed: true
-    },
-    {
-      id: 5,
-      title: "Python Syntax Quiz",
-      course: "Machine Learning Fundamentals",
-      score: 92,
-      maxScore: 100,
-      completedDate: "2024-01-08",
-      timeSpent: 22,
-      difficulty: "Beginner",
-      passed: true
-    },
-    {
-      id: 6,
-      title: "Database Design Principles",
-      course: "Complete Web Development Bootcamp",
-      score: 68,
-      maxScore: 100,
-      completedDate: "2024-01-05",
-      timeSpent: 35,
-      difficulty: "Intermediate",
-      passed: false
-    }
-  ];
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      setLoading(true);
+      try {
+        const coursesRes = await fetchWithAuth('/api/courses/my-courses');
+        const enrolledCourses: Course[] = await handleApiResponse(coursesRes);
+
+        if (enrolledCourses.length === 0) {
+          setAvailableQuizzes([]);
+          setLoading(false);
+          return;
+        }
+
+        const quizPromises = enrolledCourses.map(async (course) => {
+          try {
+            const quizzesRes = await fetchWithAuth(`/api/courses/${course.id}/quizzes`);
+            const courseQuizzes = await handleApiResponse(quizzesRes);
+            return courseQuizzes.map((quiz: any) => ({ ...quiz, course_id: course.id, course_title: course.title }));
+          } catch (e) {
+            console.error(`Failed to fetch quizzes for course ${course.title}`, e);
+            return []; // Return empty array if a course's quizzes fail to load
+          }
+        });
+
+        const quizzesByCourse = await Promise.all(quizPromises);
+        const allQuizzes = quizzesByCourse.flat();
+        
+        // TODO: Separate completed quizzes based on submission status
+        setAvailableQuizzes(allQuizzes);
+
+      } catch (err: any) {
+        if (err instanceof UnauthorizedError) {
+          toast.error('Session expired. Please log in again.');
+          navigate('/login');
+        } else {
+          setError('Failed to load quizzes. Please try again later.');
+          toast.error(err.message || 'An unexpected error occurred.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuizzes();
+  }, [navigate]);
+
+  const renderQuizCard = (quiz: Quiz) => (
+    <Card key={quiz.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 space-y-4">
+          <div className="flex items-center space-x-3">
+            <h3 className="text-xl font-semibold">{quiz.title}</h3>
+          </div>
+          <p className="text-muted-foreground">{quiz.course_title}</p>
+          <p className="text-foreground">{quiz.description}</p>
+        </div>
+        <div className="flex flex-col items-end space-y-2">
+          <Link to={`/student/quizzes/${quiz.course_id}/${quiz.id}/attempt`} className="w-full">
+            <Button><Play className="mr-2 h-4 w-4"/>Start Quiz</Button>
+          </Link>
+        </div>
+      </div>
+    </Card>
+  );
+
+  if (loading) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-destructive mb-2">An Error Occurred</h2>
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -136,9 +176,7 @@ const Quizzes = () => {
                 <Trophy className="h-6 w-6 text-yellow-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {Math.round(completedQuizzes.reduce((sum, quiz) => sum + (quiz.score / quiz.maxScore), 0) / completedQuizzes.length * 100)}%
-                </p>
+                <p className="text-2xl font-bold">N/A</p>
                 <p className="text-sm text-muted-foreground">Avg Score</p>
               </div>
             </div>
@@ -150,9 +188,7 @@ const Quizzes = () => {
                 <Clock className="h-6 w-6 text-purple-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {Math.round(completedQuizzes.reduce((sum, quiz) => sum + quiz.timeSpent, 0) / completedQuizzes.length)}m
-                </p>
+                <p className="text-2xl font-bold">N/A</p>
                 <p className="text-sm text-muted-foreground">Avg Time</p>
               </div>
             </div>
@@ -166,104 +202,15 @@ const Quizzes = () => {
           </TabsList>
 
           <TabsContent value="available" className="space-y-4">
-            {availableQuizzes.map((quiz) => (
-              <Card key={quiz.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <h3 className="text-xl font-semibold">{quiz.title}</h3>
-                      <Badge className={getDifficultyColor(quiz.difficulty)}>
-                        {quiz.difficulty}
-                      </Badge>
-                      {quiz.attempts > 0 && (
-                        <Badge variant="outline">
-                          Attempt {quiz.attempts}/{quiz.maxAttempts}
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <p className="text-muted-foreground">{quiz.course}</p>
-                    <p className="text-foreground">{quiz.description}</p>
-                    
-                    <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                      <div className="flex items-center space-x-1">
-                        <Target className="h-4 w-4" />
-                        <span>{quiz.questions} questions</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{quiz.timeLimit} minutes</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <AlertCircle className="h-4 w-4" />
-                        <span>{quiz.maxAttempts - quiz.attempts} attempts left</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline">Preview</Button>
-                    <Button 
-                      className="btn-neon"
-                      disabled={quiz.attempts >= quiz.maxAttempts}
-                    >
-                      <Play className="mr-2 h-4 w-4" />
-                      {quiz.attempts > 0 ? 'Retake Quiz' : 'Start Quiz'}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+            {availableQuizzes.length > 0 ? (
+              availableQuizzes.map(renderQuizCard)
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No available quizzes at the moment.</p>
+            )}
           </TabsContent>
 
           <TabsContent value="completed" className="space-y-4">
-            {completedQuizzes.map((quiz) => (
-              <Card key={quiz.id} className="glass-card p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <h3 className="text-xl font-semibold">{quiz.title}</h3>
-                      <Badge className={getDifficultyColor(quiz.difficulty)}>
-                        {quiz.difficulty}
-                      </Badge>
-                      <Badge className={quiz.passed ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}>
-                        {quiz.passed ? 'Passed' : 'Failed'}
-                      </Badge>
-                    </div>
-                    
-                    <p className="text-muted-foreground">{quiz.course}</p>
-                    
-                    <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                      <div>
-                        <span>Score: </span>
-                        <span className={`font-semibold ${getScoreColor(quiz.score, quiz.maxScore)}`}>
-                          {quiz.score}/{quiz.maxScore} ({Math.round((quiz.score / quiz.maxScore) * 100)}%)
-                        </span>
-                      </div>
-                      <div>
-                        <span>Completed: {new Date(quiz.completedDate).toLocaleDateString()}</span>
-                      </div>
-                      <div>
-                        <span>Time: {quiz.timeSpent} minutes</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Score Progress</span>
-                        <span>{Math.round((quiz.score / quiz.maxScore) * 100)}%</span>
-                      </div>
-                      <Progress value={(quiz.score / quiz.maxScore) * 100} className="h-2" />
-                    </div>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline">View Results</Button>
-                    <Button variant="outline">Review Answers</Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+            <p className="text-center text-muted-foreground py-8">You have not completed any quizzes yet.</p>
           </TabsContent>
         </Tabs>
       </div>

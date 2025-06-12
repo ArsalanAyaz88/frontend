@@ -15,6 +15,8 @@ import StudentCourseDetail from "./pages/student/CourseDetail";
 import StudentAssignments from "./pages/student/Assignments";
 import StudentAssignmentDetail from "./pages/student/AssignmentDetail";
 import StudentQuizzes from "./pages/student/Quizzes";
+import QuizAttempt from "./pages/student/QuizAttempt";
+import QuizResult from "./pages/student/QuizResult";
 import StudentPayment from "./pages/student/Payment";
 import StudentProfile from "./pages/student/Profile";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -48,6 +50,8 @@ const App = () => (
           <Route path="/student/assignments" element={<StudentAssignments />} />
           <Route path="/student/assignments/:courseId/:assignmentId" element={<StudentAssignmentDetail />} />
           <Route path="/student/quizzes" element={<StudentQuizzes />} />
+          <Route path="/student/quizzes/:courseId/:quizId/attempt" element={<QuizAttempt />} />
+          <Route path="/student/quizzes/:courseId/:quizId/results/:submissionId" element={<QuizResult />} />
           <Route path="/student/payment" element={<StudentPayment />} />
           <Route path="/student/payment/:courseId" element={<StudentPayment />} />
           <Route path="/student/profile" element={<StudentProfile />} />
