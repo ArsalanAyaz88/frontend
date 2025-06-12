@@ -103,13 +103,7 @@ const CourseDetail = () => {
 
   const handleEnrollNow = () => {
     if (course) {
-      navigate('/student/payment', {
-        state: {
-          courseId: course.id,
-          courseTitle: course.title,
-          coursePrice: course.price,
-        },
-      });
+      navigate(`/student/payment/${course.id}`);
     }
   };
 

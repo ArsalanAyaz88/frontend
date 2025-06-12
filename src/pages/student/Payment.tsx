@@ -1,266 +1,293 @@
-import DashboardLayout from "@/components/DashboardLayout";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, CreditCard, FileText, CheckCircle, Clock, X } from "lucide-react";
-import { useState } from "react";
-import { useLocation } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { Loader2, FileText, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
+import DashboardLayout from '@/components/DashboardLayout';
+
+interface PurchaseInfo {
+  course_title: string;
+  course_price: number;
+  bank_accounts: {
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+  }[];
+}
 
 const Payment = () => {
-  const location = useLocation();
-  const { courseTitle, coursePrice } = location.state || {}; // Get data from navigation state
+  const { courseId } = useParams<{ courseId: string }>();
 
+  const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const paymentHistory = [
-    {
-      id: 1,
-      course: "Complete Web Development Bootcamp",
-      amount: "$89",
-      date: "2024-01-01",
-      status: "approved",
-      transactionId: "TXN-001234",
-      paymentMethod: "Bank Transfer"
-    },
-    {
-      id: 2,
-      course: "Machine Learning Fundamentals",
-      amount: "$129",
-      date: "2024-01-05",
-      status: "pending",
-      transactionId: "TXN-001235",
-      paymentMethod: "PayPal"
-    },
-    {
-      id: 3,
-      course: "Digital Marketing Mastery",
-      amount: "$69",
-      date: "2024-01-03",
-      status: "rejected",
-      transactionId: "TXN-001236",
-      paymentMethod: "Credit Card"
-    }
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!courseId) {
+        setError('Course ID is missing from the URL.');
+        setLoading(false);
+        return;
+      }
 
-  const pendingCourses = [
-    {
-      id: 1,
-      title: "UI/UX Design Principles",
-      price: "$89",
-      instructor: "David Kim",
-      image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=200&q=80"
-    },
-    {
-      id: 2,
-      title: "Python for Data Science",
-      price: "$99",
-      instructor: "Dr. Lisa Chen",
-      image: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=200&q=80"
-    }
-  ];
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        setError('You are not logged in. Please log in to proceed.');
+        setLoading(false);
+        return;
+      }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-500/20 text-green-500';
-      case 'pending': return 'bg-yellow-500/20 text-yellow-500';
-      case 'rejected': return 'bg-red-500/20 text-red-500';
-      default: return 'bg-gray-500/20 text-gray-500';
-    }
-  };
+      try {
+        setLoading(true);
+        setError(null);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4" />;
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'rejected': return <X className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
-  };
+        const [purchaseInfoRes, statusRes] = await Promise.all([
+          fetch(`/api/enrollments/courses/${courseId}/purchase-info`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          }),
+          fetch(`/api/enrollments/enrollments/${courseId}/status`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          })
+        ]);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+        if (purchaseInfoRes.ok) {
+            const purchaseData = await purchaseInfoRes.json();
+            setPurchaseInfo(purchaseData);
+        } else {
+            const errorData = await purchaseInfoRes.json();
+            throw new Error(errorData.detail || 'Failed to fetch purchase information.');
+        }
+
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setEnrollmentStatus(statusData.status);
+        } else if (statusRes.status === 404) {
+          setEnrollmentStatus(null); // Not enrolled yet
+        } else {
+            const errorData = await statusRes.json();
+            throw new Error(errorData.detail || 'Failed to fetch enrollment status.');
+        }
+
+      } catch (err: any) {
+        setError(err.message || 'An unexpected error occurred.');
+        toast.error(err.message || 'An unexpected error occurred.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [courseId]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error('File size exceeds 5MB.');
+        return;
+      }
+      if (!['image/png', 'image/jpeg', 'application/pdf'].includes(file.type)) {
+        toast.error('Invalid file type. Please upload PNG, JPG, or PDF.');
+        return;
+      }
       setUploadedFile(file);
-      toast({
-        title: "File Selected",
-        description: `${file.name} is ready to upload.`,
-      });
+      toast.success('File selected: ' + file.name);
     }
   };
 
-  const handleSubmitProof = () => {
-    if (uploadedFile) {
-      toast({
-        title: "Payment Proof Submitted",
-        description: "Your payment proof has been submitted for review.",
+  const handleSubmitProof = async () => {
+    if (!uploadedFile || !courseId) {
+      toast.error('Please select a payment proof file.');
+      return;
+    }
+
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      toast.error('Authentication error. Please log in again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const formData = new FormData();
+    formData.append('payment_proof', uploadedFile);
+
+    try {
+      const response = await fetch(`/api/enrollments/enrollments/${courseId}/payment-proof`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: formData,
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to submit payment proof.');
+      }
+
+      const result = await response.json();
+      toast.success(result.detail || 'Payment proof submitted successfully!');
+      setEnrollmentStatus('pending');
       setUploadedFile(null);
+    } catch (err: any) {
+      toast.error(err.message || 'An error occurred while submitting.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderPaymentForm = () => {
+    if (!purchaseInfo) return null;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Course Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <h3 className="text-lg font-semibold">{purchaseInfo.course_title}</h3>
+            <p className="text-2xl font-bold text-primary mt-2">
+              Price: ${purchaseInfo.course_price.toFixed(2)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Bank Account Details</CardTitle>
+            <CardDescription>
+              Please transfer the course fee to one of the accounts below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {purchaseInfo.bank_accounts.map((acc, index) => (
+              <div key={index} className="p-3 border rounded-md">
+                <p><strong>Bank:</strong> {acc.bank_name}</p>
+                <p><strong>Account Name:</strong> {acc.account_name}</p>
+                <p><strong>Account Number:</strong> {acc.account_number}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Submit Payment Proof</CardTitle>
+            <CardDescription>
+              Upload a screenshot or receipt of your transaction.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid w-full max-w-sm items-center gap-1.5">
+                <Label htmlFor="payment-proof">Payment Proof (PNG, JPG, PDF)</Label>
+                <Input id="payment-proof" type="file" accept="image/png, image/jpeg, application/pdf" onChange={handleFileChange} />
+              </div>
+              {uploadedFile && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  <span>{uploadedFile.name}</span>
+                </div>
+              )}
+              <Button onClick={handleSubmitProof} disabled={!uploadedFile || isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Proof'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <Card className="bg-destructive/10 border-destructive">
+          <CardHeader>
+            <CardTitle className="flex items-center text-destructive">
+              <AlertCircle className="mr-2" /> Error
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{error}</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    switch (enrollmentStatus) {
+      case 'approved':
+        return (
+          <Card className="bg-green-100 border-green-500">
+            <CardHeader>
+              <CardTitle className="flex items-center text-green-800">
+                <CheckCircle className="mr-2" /> Enrollment Approved
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Your enrollment is complete. You can now access the course materials.</p>
+            </CardContent>
+          </Card>
+        );
+      case 'pending':
+        return (
+          <Card className="bg-yellow-100 border-yellow-500">
+            <CardHeader>
+              <CardTitle className="flex items-center text-yellow-800">
+                <Clock className="mr-2" /> Payment Pending
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Your payment proof has been submitted and is awaiting review. This may take up to 24 hours.</p>
+            </CardContent>
+          </Card>
+        );
+      case 'rejected':
+        return (
+          <Card className="bg-red-100 border-red-500">
+            <CardHeader>
+              <CardTitle className="flex items-center text-red-800">
+                <XCircle className="mr-2" /> Enrollment Rejected
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Your payment proof was rejected. Please check the details and resubmit.</p>
+              {renderPaymentForm()}
+            </CardContent>
+          </Card>
+        );
+      default:
+        return renderPaymentForm();
     }
   };
 
   return (
     <DashboardLayout userType="student">
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <h1 className="text-3xl font-bold mb-6">Payment & Billing</h1>
-
-        {courseTitle && coursePrice !== undefined && (
-          <Card className="mb-8 bg-primary/5 border-primary/20">
-            <CardHeader>
-              <CardTitle className="text-xl">Enrollment Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                <div className="mb-4 sm:mb-0">
-                  <p className="text-sm text-muted-foreground">You are enrolling in:</p>
-                  <p className="text-lg font-semibold">{courseTitle}</p>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm text-muted-foreground">Price:</p>
-                  <p className="text-2xl font-bold text-primary">{coursePrice > 0 ? `$${coursePrice}` : 'Free'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Card>
-              <Tabs defaultValue="card">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="card">Pay with Card</TabsTrigger>
-                  <TabsTrigger value="transfer">Bank Transfer</TabsTrigger>
-                </TabsList>
-                <TabsContent value="card" className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Credit/Debit Card Details</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" placeholder="John" />
-                      </div>
-                      <div>
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" placeholder="Doe" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="cardNumber">Card Number</Label>
-                      <Input id="cardNumber" placeholder="**** **** **** 1234" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="expiryMonth">Expiry Month</Label>
-                        <Input id="expiryMonth" placeholder="MM" />
-                      </div>
-                      <div>
-                        <Label htmlFor="expiryYear">Expiry Year</Label>
-                        <Input id="expiryYear" placeholder="YYYY" />
-                      </div>
-                      <div>
-                        <Label htmlFor="cvc">CVC</Label>
-                        <Input id="cvc" placeholder="123" />
-                      </div>
-                    </div>
-                    <Button className="w-full">Pay Now</Button>
-                  </div>
-                </TabsContent>
-                <TabsContent value="transfer" className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Bank Transfer Details</h3>
-                  <div className="space-y-2 text-sm bg-muted p-4 rounded-lg">
-                    <p><strong>Bank Name:</strong> EduVerse National Bank</p>
-                    <p><strong>Account Name:</strong> EduVerse Inc.</p>
-                    <p><strong>Account Number:</strong> 123-456-7890</p>
-                    <p><strong>IBAN:</strong> EV12 3456 7890 1234 5678</p>
-                    <p><strong>SWIFT Code:</strong> EDUVUS33</p>
-                  </div>
-                  <div className="mt-6">
-                    <Label htmlFor="proof" className="text-base font-semibold">Upload Payment Proof</Label>
-                    <div className="mt-2 flex items-center justify-center w-full">
-                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <Upload className="w-10 h-10 mb-3 text-muted-foreground" />
-                          {uploadedFile ? (
-                            <p className="font-semibold text-primary">{uploadedFile.name}</p>
-                          ) : (
-                            <>
-                              <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                              <p className="text-xs text-muted-foreground">PNG, JPG, or PDF (MAX. 5MB)</p>
-                            </>
-                          )}
-                        </div>
-                        <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileUpload} />
-                      </label>
-                    </div>
-                    <Button className="w-full mt-4" onClick={handleSubmitProof} disabled={!uploadedFile}>Submit Proof</Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </Card>
-          </div>
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Pending Courses</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {pendingCourses.map(course => (
-                  <div key={course.id} className="flex items-center space-x-4">
-                    <img src={course.image} alt={course.title} className="h-16 w-16 rounded-lg object-cover" />
-                    <div>
-                      <p className="font-semibold">{course.title}</p>
-                      <p className="text-sm text-muted-foreground">{course.price}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
-              Payment History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-muted">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Course</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-background divide-y divide-muted">
-                  {paymentHistory.map((payment) => (
-                    <tr key={payment.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{payment.course}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{payment.amount}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{payment.date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <Badge className={`${getStatusColor(payment.status)}`}>
-                          {getStatusIcon(payment.status)}
-                          <span className="ml-1.5">{payment.status}</span>
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="p-4 md:p-8">
+        <h1 className="text-2xl font-bold mb-4">Enrollment & Payment</h1>
+        {renderContent()}
       </div>
     </DashboardLayout>
   );

@@ -46,7 +46,7 @@ const App = () => (
           <Route path="/student/courses/:courseId" element={<StudentCourseDetail />} />
           <Route path="/student/assignments" element={<StudentAssignments />} />
           <Route path="/student/quizzes" element={<StudentQuizzes />} />
-          <Route path="/student/payment" element={<StudentPayment />} />
+          <Route path="/student/payment/:courseId" element={<StudentPayment />} />
           <Route path="/student/profile" element={<StudentProfile />} />
           
           {/* Admin Routes */}
