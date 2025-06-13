@@ -35,11 +35,44 @@ const Login = () => {
 
       if (response.ok) {
         localStorage.setItem('accessToken', data.access_token);
+
+        // Fetch user profile to get full_name and store session
+        try {
+          const profileResponse = await fetch('/api/profile/profile', {
+            headers: { 'Authorization': `Bearer ${data.access_token}` }
+          });
+          const profileData = await profileResponse.json();
+          if (profileResponse.ok) {
+            const userSession = {
+              email: email,
+              full_name: profileData.full_name,
+            };
+            localStorage.setItem('user', JSON.stringify(userSession));
+          } else {
+            localStorage.setItem('user', JSON.stringify({ email }));
+          }
+        } catch (profileError) {
+          console.error("Could not fetch profile after login:", profileError);
+          localStorage.setItem('user', JSON.stringify({ email }));
+        }
+
         toast({
           title: "Login Successful!",
           description: `Welcome back to EduVerse!`,
         });
-        navigate("/student/dashboard");
+        
+        const enrollCourseId = localStorage.getItem('enrollCourseId');
+        if (enrollCourseId) {
+          localStorage.removeItem('enrollCourseId');
+          navigate(`/student/payment?course_id=${enrollCourseId}`);
+        } else {
+          // Redirect based on user type
+          if (userType === 'admin') {
+            navigate("/admin/dashboard");
+          } else {
+            navigate("/student/dashboard");
+          }
+        }
       } else {
         toast({
           title: "Login Failed",
