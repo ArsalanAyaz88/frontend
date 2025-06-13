@@ -5,101 +5,241 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Edit, Save, Mail, Phone, MapPin, Calendar, Trophy, BookOpen, Clock } from "lucide-react";
-import { useState } from "react";
+import { Camera, Edit, Save, Mail, BookOpen, Clock, Trophy, Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { fetchWithAuth, UnauthorizedError } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+
+interface ProfileData {
+  fullName: string;
+  email: string;
+  bio: string;
+  avatarUrl: string;
+}
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState({
-    firstName: "Alex",
-    lastName: "Johnson",
-    email: "alex.johnson@email.com",
-    phone: "+1 (555) 123-4567",
-    location: "San Francisco, CA",
-    bio: "Passionate web developer and lifelong learner. Currently focusing on full-stack development and machine learning.",
-    joinDate: "2023-09-15",
-    profileImage: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=300&q=80"
-  });
-
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [originalProfileData, setOriginalProfileData] = useState<ProfileData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
   const { toast } = useToast();
 
-  const achievements = [
-    { name: "JavaScript Master", description: "Completed JavaScript fundamentals", date: "2024-01-10", icon: "🏆" },
-    { name: "React Developer", description: "Built 5 React projects", date: "2024-01-08", icon: "⚛️" },
-    { name: "Quick Learner", description: "Completed first course in record time", date: "2024-01-05", icon: "⚡" },
-    { name: "Consistent Student", description: "7 days learning streak", date: "2024-01-01", icon: "🔥" }
-  ];
+  const fetchProfile = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetchWithAuth('/api/profile/profile');
+      const data = await response.json();
+      
+      const userSession = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const learningStats = [
-    { label: "Courses Completed", value: "3", icon: BookOpen, color: "text-blue-500" },
-    { label: "Hours Learned", value: "127", icon: Clock, color: "text-green-500" },
-    { label: "Certificates Earned", value: "2", icon: Trophy, color: "text-yellow-500" },
-    { label: "Current Streak", value: "7 days", icon: Calendar, color: "text-purple-500" }
-  ];
-
-  const enrolledCourses = [
-    {
-      title: "Complete Web Development Bootcamp",
-      progress: 75,
-      instructor: "Sarah Johnson",
-      image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=100&q=80"
-    },
-    {
-      title: "Machine Learning Fundamentals",
-      progress: 45,
-      instructor: "Dr. Michael Chen",
-      image: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=100&q=80"
+      const fetchedData = {
+        fullName: data.full_name || "New User",
+        email: userSession.email, // Use email from localStorage session
+        bio: data.bio || "This is your bio. Click edit to change it.",
+        avatarUrl: data.avatar_url || `https://api.dicebear.com/6.x/initials/svg?seed=${data.full_name || 'U'}`
+      };
+      setProfileData(fetchedData);
+      setOriginalProfileData(fetchedData);
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
+        navigate('/login');
+      } else {
+        setError("Failed to fetch profile data.");
+        toast({ title: "Error", description: "Could not load your profile.", variant: "destructive" });
+      }
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  }, [navigate, toast]);
 
-  const handleSave = () => {
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const handleSave = async () => {
+    if (!profileData) return;
+
+    try {
+      const response = await fetchWithAuth('/api/profile/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: profileData.fullName,
+          bio: profileData.bio,
+        }),
+      });
+      const updatedProfile = await response.json();
+      
+      const newData = {
+        ...profileData,
+        fullName: updatedProfile.full_name,
+        bio: updatedProfile.bio,
+      };
+      setProfileData(newData);
+      setOriginalProfileData(newData);
+
+      setIsEditing(false);
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        navigate('/login');
+      } else {
+        toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setProfileData(originalProfileData);
     setIsEditing(false);
-    toast({
-      title: "Profile Updated",
-      description: "Your profile has been successfully updated.",
-    });
   };
 
-  const handleImageUpload = () => {
-    toast({
-      title: "Image Upload",
-      description: "Profile image upload feature would be implemented here.",
-    });
+  const handleImageUploadClick = () => {
+    fileInputRef.current?.click();
   };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Client-side validation for file type and size
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid File Type", description: "Please select a valid image file (JPEG, PNG, GIF).", variant: "destructive" });
+      return;
+    }
+
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSizeInBytes) {
+      toast({ title: "File Too Large", description: "Please select a file smaller than 5MB.", variant: "destructive" });
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setProfileData(prev => prev ? { ...prev, avatarUrl: previewUrl } : null);
+
+    const formData = new FormData();
+    formData.append('image_upload', file);
+
+    // Bypassing fetchWithAuth to create a raw fetch request.
+    // This ensures the browser can set the 'Content-Type' for FormData correctly.
+    const token = localStorage.getItem('accessToken');
+    const headers = new Headers();
+    if (token) {
+      headers.append('Authorization', `Bearer ${token}`);
+    }
+    // Do NOT set 'Content-Type'. The browser needs to set it with a boundary for multipart/form-data.
+
+    try {
+      const response = await fetch('/api/profile/profile/avatar', {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Upload Successful",
+          description: "Refreshing profile...",
+        });
+        await fetchProfile(); // Re-fetch the profile to get the new avatar URL
+      } else {
+        // Manually handle 401 Unauthorized since we are not using fetchWithAuth
+        if (response.status === 401) {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
+          toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
+          navigate('/login');
+          return; // Stop further execution
+        }
+        throw new Error(`Upload failed with status: ${response.status}`);
+      }
+    } catch (err) {
+      setProfileData(originalProfileData); // Revert on failure
+      console.error("Avatar upload error:", err);
+      toast({ title: "Error", description: "Failed to upload avatar. Please try again.", variant: "destructive" });
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+    }
+  };
+
+
+
+  if (isLoading) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="flex justify-center items-center h-full">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !profileData) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-destructive">Error</h2>
+          <p className="text-muted-foreground">{error || "Could not load profile."}</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout userType="student">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*"
+      />
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">My Profile</h1>
             <p className="text-muted-foreground">Manage your account settings and track your progress</p>
           </div>
-          <Button 
-            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-            className={isEditing ? "btn-neon" : ""}
-            variant={isEditing ? "default" : "outline"}
-          >
-            {isEditing ? <Save className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
-            {isEditing ? "Save Changes" : "Edit Profile"}
-          </Button>
+          {isEditing ? (
+            <div className="flex gap-2">
+              <Button onClick={handleSave}>
+                <Save className="mr-2 h-4 w-4" />
+                Save Changes
+              </Button>
+              <Button variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={() => setIsEditing(true)} variant="outline">
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Profile
+            </Button>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Profile Card */}
           <Card className="glass-card p-8 lg:col-span-1">
             <div className="text-center space-y-6">
               <div className="relative inline-block">
                 <img 
-                  src={profileData.profileImage}
+                  src={profileData.avatarUrl}
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover mx-auto"
                 />
                 <button 
-                  onClick={handleImageUpload}
+                  onClick={handleImageUploadClick}
                   className="absolute bottom-0 right-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors"
                 >
                   <Camera className="h-5 w-5 text-primary-foreground" />
@@ -107,172 +247,53 @@ const Profile = () => {
               </div>
               
               <div>
-                <h2 className="text-2xl font-bold">{profileData.firstName} {profileData.lastName}</h2>
+                <h2 className="text-2xl font-bold">{profileData.fullName}</h2>
                 <p className="text-muted-foreground">Student</p>
               </div>
 
               <div className="space-y-3 text-left">
                 <div className="flex items-center space-x-3 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span className="text-sm">{profileData.email}</span>
-                </div>
-                <div className="flex items-center space-x-3 text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  <span className="text-sm">{profileData.phone}</span>
-                </div>
-                <div className="flex items-center space-x-3 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span className="text-sm">{profileData.location}</span>
-                </div>
-                <div className="flex items-center space-x-3 text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-sm">Joined {new Date(profileData.joinDate).toLocaleDateString()}</span>
+                  <Mail className="h-5 w-5" />
+                  <span>{profileData.email}</span>
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            <Tabs defaultValue="info" className="space-y-6">
-              <TabsList>
-                <TabsTrigger value="info">Personal Info</TabsTrigger>
-                <TabsTrigger value="progress">Learning Progress</TabsTrigger>
-                <TabsTrigger value="achievements">Achievements</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="info" className="space-y-6">
-                <Card className="glass-card p-6">
-                  <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
-                  <div className="grid md:grid-cols-2 gap-4">
+          <div className="lg:col-span-2">
+            <Card className="glass-card p-8">
+              {isEditing ? (
+                <>
+                  <h3 className="text-xl font-bold mb-6">Edit Information</h3>
+                  <div className="space-y-6">
                     <div>
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input 
-                        id="firstName"
-                        value={profileData.firstName}
-                        onChange={(e) => setProfileData(prev => ({...prev, firstName: e.target.value}))}
-                        disabled={!isEditing}
-                        className="mt-1"
+                      <Label htmlFor="fullName">Full Name</Label>
+                      <Input
+                        id="fullName"
+                        value={profileData.fullName}
+                        onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input 
-                        id="lastName"
-                        value={profileData.lastName}
-                        onChange={(e) => setProfileData(prev => ({...prev, lastName: e.target.value}))}
-                        disabled={!isEditing}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input 
-                        id="email"
-                        value={profileData.email}
-                        onChange={(e) => setProfileData(prev => ({...prev, email: e.target.value}))}
-                        disabled={!isEditing}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input 
-                        id="phone"
-                        value={profileData.phone}
-                        onChange={(e) => setProfileData(prev => ({...prev, phone: e.target.value}))}
-                        disabled={!isEditing}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label htmlFor="location">Location</Label>
-                      <Input 
-                        id="location"
-                        value={profileData.location}
-                        onChange={(e) => setProfileData(prev => ({...prev, location: e.target.value}))}
-                        disabled={!isEditing}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
                       <Label htmlFor="bio">Bio</Label>
-                      <Textarea 
+                      <Textarea
                         id="bio"
                         value={profileData.bio}
-                        onChange={(e) => setProfileData(prev => ({...prev, bio: e.target.value}))}
-                        disabled={!isEditing}
-                        className="mt-1"
-                        rows={4}
+                        onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                        rows={5}
                       />
                     </div>
                   </div>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="progress" className="space-y-6">
-                {/* Learning Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {learningStats.map((stat) => (
-                    <Card key={stat.label} className="glass-card p-4 text-center">
-                      <stat.icon className={`h-8 w-8 ${stat.color} mx-auto mb-2`} />
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
-                    </Card>
-                  ))}
-                </div>
-
-                {/* Current Courses */}
-                <Card className="glass-card p-6">
-                  <h3 className="text-lg font-semibold mb-4">Current Courses</h3>
-                  <div className="space-y-4">
-                    {enrolledCourses.map((course, index) => (
-                      <div key={index} className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
-                        <img 
-                          src={course.image}
-                          alt={course.title}
-                          className="w-12 h-12 rounded-lg object-cover"
-                        />
-                        <div className="flex-1">
-                          <h4 className="font-medium">{course.title}</h4>
-                          <p className="text-sm text-muted-foreground">by {course.instructor}</p>
-                          <div className="flex items-center space-x-2 mt-2">
-                            <div className="flex-1 bg-muted rounded-full h-2">
-                              <div 
-                                className="bg-primary h-2 rounded-full"
-                                style={{ width: `${course.progress}%` }}
-                              />
-                            </div>
-                            <span className="text-sm text-muted-foreground">{course.progress}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="achievements" className="space-y-6">
-                <Card className="glass-card p-6">
-                  <h3 className="text-lg font-semibold mb-4">Achievements & Badges</h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {achievements.map((achievement, index) => (
-                      <div key={index} className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
-                        <div className="text-2xl">{achievement.icon}</div>
-                        <div className="flex-1">
-                          <h4 className="font-medium">{achievement.name}</h4>
-                          <p className="text-sm text-muted-foreground">{achievement.description}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Earned on {new Date(achievement.date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Badge variant="outline">New</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-bold mb-6">About Me</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {profileData.bio}
+                  </p>
+                </>
+              )}
+            </Card>
           </div>
         </div>
       </div>
@@ -281,3 +302,5 @@ const Profile = () => {
 };
 
 export default Profile;
+
+              
