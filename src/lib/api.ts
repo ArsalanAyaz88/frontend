@@ -9,12 +9,7 @@ export class UnauthorizedError extends Error {
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
-  const token = localStorage.getItem('accessToken');
   const headers = new Headers(options.headers);
-  
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
 
   // When uploading a file with FormData, the browser automatically sets the
   // Content-Type to 'multipart/form-data' with the correct boundary.
@@ -29,12 +24,10 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
 
   const fullUrl = `${API_BASE_URL}${url}`;
 
-  const response = await fetch(fullUrl, { ...options, headers });
+  // Always include credentials (cookies) for authentication
+  const response = await fetch(fullUrl, { ...options, headers, credentials: 'include' });
 
   if (response.status === 401) {
-    // Clear session and throw a specific error for the UI to handle.
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
     throw new UnauthorizedError();
   }
 

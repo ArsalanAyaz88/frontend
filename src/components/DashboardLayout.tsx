@@ -16,7 +16,8 @@ import {
   X,
   UserCheck,
   CheckCircle,
-  Clock
+  Clock,
+  Bell
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -46,7 +47,7 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
     { icon: Users, label: "Students", path: "/admin/students" },
     { icon: UserCheck, label: "Enrollments", path: "/admin/enrollments" },
-    { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
+    { icon: Bell, label: "Notifications", path: "/admin/notifications" },
     { icon: Clock, label: "Manage Assignments", path: "/admin/manage-assignments" },
     { icon: CheckCircle, label: "Manage Quizzes", path: "/admin/manage-quizzes" },
   ];
@@ -123,7 +124,7 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-0">
+      <div className="flex-1 lg:ml-0 h-screen overflow-y-auto">
         {/* Mobile Header */}
         <div className="lg:hidden bg-card/50 backdrop-blur-sm border-b border-border/50 p-4">
           <Button

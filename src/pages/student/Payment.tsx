@@ -59,6 +59,7 @@ const Payment = () => {
           } else if (statusRes.ok) {
             const statusData = await handleApiResponse(statusRes);
             setEnrollmentStatus(statusData.status);
+
           } else {
             setEnrollmentStatus(null);
           }
@@ -135,28 +136,47 @@ const Payment = () => {
   };
 
   const handleSubmitProof = async () => {
-    if (!uploadedFile || !courseId) return toast.error('Please select a payment proof file.');
+    if (!uploadedFile) {
+      toast.error('Please select a file to upload.');
+      return;
+    }
+    if (!courseId) {
+      toast.error('Course ID is missing from the URL.');
+      return;
+    }
 
     setIsSubmitting(true);
     const formData = new FormData();
-    formData.append('payment_proof', uploadedFile);
+    // The backend expects the file under the field name 'file'.
+    formData.append('file', uploadedFile);
+    formData.append('coure_id', courseId);
 
     try {
-      const res = await fetchWithAuth(`/api/enrollments/enrollments/${courseId}/payment-proof`, {
+      // The endpoint uses the courseId from the URL.
+      const response = await fetchWithAuth(`/api/enrollments/enrollments/${courseId}/payment-proof`, {
         method: 'POST',
         body: formData,
       });
-      const result = await handleApiResponse(res);
+      
+      const result = await handleApiResponse(response);
       toast.success(result.detail || 'Payment proof submitted successfully!');
+      // Update UI to show pending status
       setEnrollmentStatus('pending');
       setUploadedFile(null);
     } catch (err: any) {
-      if (err instanceof UnauthorizedError) {
-        toast.error('Session expired. Please log in again.');
-        navigate('/auth/login');
-      } else {
-        toast.error(err.message || 'An error occurred while submitting.');
+      let errorMessage = 'Failed to submit payment proof.';
+      // Attempt to parse detailed validation errors from FastAPI
+      if (err.response && err.response.detail) {
+        if (Array.isArray(err.response.detail)) {
+          errorMessage = err.response.detail.map((d: any) => `${d.loc.join('.')} - ${d.msg}`).join('; ');
+        } else {
+          errorMessage = err.response.detail;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+      console.error('Payment Submission Error Response:', JSON.stringify(err.response, null, 2));
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

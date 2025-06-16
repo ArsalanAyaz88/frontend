@@ -1,337 +1,399 @@
+import { useState, useEffect } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { PlusCircle, Trash2, Edit, MoreHorizontal, Eye } from 'lucide-react';
+import DashboardLayout from '@/components/DashboardLayout';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { fetchWithAuth, handleApiResponse } from '@/lib/api';
+import { toast } from 'sonner';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Link } from 'react-router-dom';
 
-import DashboardLayout from "@/components/DashboardLayout";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Filter, Edit, Trash2, Users, DollarSign, Play, Eye } from "lucide-react";
+// Types
+interface Course {
+  id: string;
+  title: string;
+  price: number;
+  total_enrollments: number;
+  status: string;
+  created_at: string;
+  // For edit form
+  description?: string;
+  thumbnail_url?: string;
+  difficulty_level?: string;
+  outcomes?: string;
+  prerequisites?: string;
+  curriculum?: string;
+  videos?: { youtube_url: string; title: string; description: string }[];
+}
+
+const videoSchema = z.object({
+  youtube_url: z.string().url({ message: 'Invalid YouTube URL' }),
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().optional(),
+});
+
+const courseFormSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  price: z.coerce.number().min(0, 'Price cannot be negative'),
+  thumbnail_url: z.string().optional(),
+  difficulty_level: z.string().optional(),
+  outcomes: z.string().optional(),
+  prerequisites: z.string().optional(),
+  curriculum: z.string().optional(),
+  videos: z.array(videoSchema).min(1, 'At least one video is required'),
+});
+
+type CourseFormData = z.infer<typeof courseFormSchema>;
 
 const AdminCourses = () => {
-  const allCourses = [
-    {
-      id: 1,
-      title: "Complete Web Development Bootcamp",
-      instructor: "Sarah Johnson",
-      students: 1245,
-      revenue: "$12,450",
-      status: "published",
-      category: "Programming",
-      rating: 4.9,
-      lessons: 45,
-      duration: "42 hours",
-      createdDate: "2023-09-15",
-      image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=400&q=80"
-    },
-    {
-      id: 2,
-      title: "Machine Learning Fundamentals",
-      instructor: "Dr. Michael Chen",
-      students: 890,
-      revenue: "$8,900",
-      status: "published",
-      category: "AI & Data Science",
-      rating: 4.8,
-      lessons: 32,
-      duration: "36 hours",
-      createdDate: "2023-10-01",
-      image: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=400&q=80"
-    },
-    {
-      id: 3,
-      title: "Digital Marketing Mastery",
-      instructor: "Emma Williams",
-      students: 567,
-      revenue: "$5,670",
-      status: "published",
-      category: "Marketing",
-      rating: 4.7,
-      lessons: 28,
-      duration: "28 hours",
-      createdDate: "2023-10-15",
-      image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=400&q=80"
-    },
-    {
-      id: 4,
-      title: "Advanced React Patterns",
-      instructor: "Sarah Johnson",
-      students: 0,
-      revenue: "$0",
-      status: "draft",
-      category: "Programming",
-      rating: 0,
-      lessons: 0,
-      duration: "0 hours",
-      createdDate: "2024-01-10",
-      image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=400&q=80"
-    }
-  ];
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published': return 'bg-green-500/20 text-green-500';
-      case 'draft': return 'bg-yellow-500/20 text-yellow-500';
-      case 'archived': return 'bg-gray-500/20 text-gray-500';
-      default: return 'bg-gray-500/20 text-gray-500';
+  const form = useForm<CourseFormData>({
+    resolver: zodResolver(courseFormSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      price: 0,
+      thumbnail_url: '',
+      difficulty_level: '',
+      outcomes: '',
+      prerequisites: '',
+      curriculum: '',
+      videos: [{ youtube_url: '', title: '', description: '' }],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'videos',
+  });
+
+  const fetchCourses = async () => {
+    setLoading(true);
+    try {
+      const response = await fetchWithAuth('/api/admin/courses?skip=0&limit=100');
+      const data = await handleApiResponse(response);
+      setCourses(data);
+    } catch (error) {
+      toast.error('Failed to fetch courses.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const publishedCourses = allCourses.filter(course => course.status === 'published');
-  const draftCourses = allCourses.filter(course => course.status === 'draft');
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  const handleEdit = async (courseId: string) => {
+    try {
+        const response = await fetchWithAuth(`/api/admin/courses/${courseId}`);
+        const courseDetails = await handleApiResponse(response);
+        form.reset({
+            title: courseDetails.title,
+            description: courseDetails.description || '',
+            price: courseDetails.price,
+            thumbnail_url: courseDetails.thumbnail_url || '',
+            difficulty_level: courseDetails.difficulty_level || '',
+            outcomes: courseDetails.outcomes || '',
+            prerequisites: courseDetails.prerequisites || '',
+            curriculum: courseDetails.curriculum || '',
+            videos: courseDetails.videos && courseDetails.videos.length > 0 ? courseDetails.videos : [{ youtube_url: '', title: '', description: '' }],
+        });
+        setSelectedCourse(courseDetails);
+        setIsDialogOpen(true);
+    } catch (error) {
+        toast.error('Failed to fetch course details.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!courseToDelete) return;
+    console.log(`Attempting to delete course with ID: ${courseToDelete}`);
+    try {
+      console.log('Before fetchWithAuth');
+      const response = await fetchWithAuth(`/api/admin/courses/${courseToDelete}`, { method: 'DELETE' });
+      console.log('After fetchWithAuth, response:', response);
+      await handleApiResponse(response);
+      console.log('After handleApiResponse');
+      toast.success('Course deleted successfully!');
+      // Instantly remove the deleted course from the UI
+      setCourses(prev => prev.filter(course => course.id !== courseToDelete));
+    } catch (error) {
+      console.error('Error during delete:', error);
+      toast.error('Failed to delete course.');
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setCourseToDelete(null);
+    }
+  };
+
+  const onSubmit = async (data: CourseFormData) => {
+    const url = selectedCourse ? `/api/admin/courses/${selectedCourse.id}` : '/api/admin/courses';
+    const method = selectedCourse ? 'PUT' : 'POST';
+
+    try {
+      let response;
+      if (method === 'PUT') {
+        // Update request with JSON body
+        response = await fetchWithAuth(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+      } else {
+        // Create request with FormData. Backend should handle 'courseData' field.
+        const formData = new FormData();
+        const { thumbnail, ...courseData } = data as any;
+        formData.append('course', JSON.stringify(courseData));
+        if (thumbnail && thumbnail[0]) {
+          formData.append('thumbnail', thumbnail[0]);
+        }
+        response = await fetchWithAuth(url, {
+          method,
+          body: formData,
+        });
+      }
+      
+      const savedCourse = await handleApiResponse(response);
+      toast.success(selectedCourse ? 'Course updated successfully!' : 'Course created successfully!');
+      setIsDialogOpen(false);
+      setSelectedCourse(null);
+      form.reset();
+      fetchCourses();
+      if (selectedCourse) {
+        setCourses(prevCourses =>
+          prevCourses.map(course =>
+            course.id === savedCourse.id ? savedCourse : course
+          )
+        );
+      } else {
+        setCourses(prevCourses => [...prevCourses, savedCourse]);
+      }
+  } catch (error) {
+      toast.error(`Failed to ${selectedCourse ? 'update' : 'create'} course.`);
+    }
+  };
 
   return (
     <DashboardLayout userType="admin">
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Course Management</h1>
-            <p className="text-muted-foreground">Create, edit, and manage your courses</p>
-          </div>
-          <Button className="btn-neon">
-            <Plus className="mr-2 h-4 w-4" />
-            Create New Course
-          </Button>
-        </div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Courses</h1>
+        <Button onClick={() => {
+          setSelectedCourse(null);
+          form.reset();
+          setIsDialogOpen(true);
+        }}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Create Course
+        </Button>
+      </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <Play className="h-6 w-6 text-blue-500" />
+      {/* Course Form Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedCourse ? 'Edit Course' : 'Create Course'}</DialogTitle>
+            <DialogDescription>
+              {selectedCourse ? 'Update the details of your course.' : 'Fill in the details to create a new course.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" {...form.register('title')} />
+              {form.formState.errors.title && <p className="text-red-500 text-sm">{form.formState.errors.title.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" {...form.register('description')} />
+              {form.formState.errors.description && <p className="text-red-500 text-sm">{form.formState.errors.description.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">Price</Label>
+                <Input id="price" type="number" {...form.register('price')} />
+                {form.formState.errors.price && <p className="text-red-500 text-sm">{form.formState.errors.price.message}</p>}
               </div>
-              <div>
-                <p className="text-2xl font-bold">{publishedCourses.length}</p>
-                <p className="text-sm text-muted-foreground">Published</p>
+              <div className="space-y-2">
+                <Label htmlFor="thumbnail_url">Thumbnail URL</Label>
+                <Input id="thumbnail_url" {...form.register('thumbnail_url')} />
+                {form.formState.errors.thumbnail_url && <p className="text-red-500 text-sm">{form.formState.errors.thumbnail_url.message}</p>}
               </div>
             </div>
-          </Card>
-
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center">
-                <Edit className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{draftCourses.length}</p>
-                <p className="text-sm text-muted-foreground">Drafts</p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="difficulty_level">Difficulty Level</Label>
+              <Input id="difficulty_level" {...form.register('difficulty_level')} />
+              {form.formState.errors.difficulty_level && <p className="text-red-500 text-sm">{form.formState.errors.difficulty_level.message}</p>}
             </div>
-          </Card>
-
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {publishedCourses.reduce((sum, course) => sum + course.students, 0)}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Students</p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="outcomes">Outcomes</Label>
+              <Textarea id="outcomes" {...form.register('outcomes')} />
+              {form.formState.errors.outcomes && <p className="text-red-500 text-sm">{form.formState.errors.outcomes.message}</p>}
             </div>
-          </Card>
-
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  ${publishedCourses.reduce((sum, course) => sum + parseInt(course.revenue.replace(/[$,]/g, '')), 0).toLocaleString()}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="prerequisites">Prerequisites</Label>
+              <Textarea id="prerequisites" {...form.register('prerequisites')} />
+              {form.formState.errors.prerequisites && <p className="text-red-500 text-sm">{form.formState.errors.prerequisites.message}</p>}
             </div>
-          </Card>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search courses..." className="pl-10 w-64" />
+            <div className="space-y-2">
+              <Label htmlFor="curriculum">Curriculum</Label>
+              <Textarea id="curriculum" {...form.register('curriculum')} />
+              {form.formState.errors.curriculum && <p className="text-red-500 text-sm">{form.formState.errors.curriculum.message}</p>}
             </div>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              Filter
-            </Button>
-          </div>
-        </div>
 
-        <Tabs defaultValue="all" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="all">All Courses ({allCourses.length})</TabsTrigger>
-            <TabsTrigger value="published">Published ({publishedCourses.length})</TabsTrigger>
-            <TabsTrigger value="drafts">Drafts ({draftCourses.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all" className="space-y-4">
-            {allCourses.map((course) => (
-              <Card key={course.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-                <div className="flex items-center space-x-6">
-                  <img 
-                    src={course.image}
-                    alt={course.title}
-                    className="w-24 h-24 rounded-lg object-cover"
-                  />
-                  
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="text-xl font-semibold">{course.title}</h3>
-                        <Badge className={getStatusColor(course.status)}>
-                          {course.status}
-                        </Badge>
-                        <Badge variant="outline">{course.category}</Badge>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <p className="text-muted-foreground">by {course.instructor}</p>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Students: </span>
-                        <span className="font-medium">{course.students.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Revenue: </span>
-                        <span className="font-medium text-green-500">{course.revenue}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Rating: </span>
-                        <span className="font-medium">{course.rating || 'No ratings'}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Lessons: </span>
-                        <span className="font-medium">{course.lessons}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Duration: </span>
-                        <span className="font-medium">{course.duration}</span>
-                      </div>
-                    </div>
-
-                    {course.status === 'published' && course.students > 0 && (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Enrollment Progress</span>
-                          <span>{Math.round((course.students / 1500) * 100)}%</span>
-                        </div>
-                        <Progress value={(course.students / 1500) * 100} className="h-2" />
-                      </div>
-                    )}
+            {/* Videos Section */}
+            <div className="space-y-4">
+              <Label>Videos</Label>
+              {fields.map((field, index) => (
+                <div key={field.id} className="p-4 border rounded-md relative space-y-2">
+                  <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2" onClick={() => remove(index)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <div>
+                    <Label htmlFor={`videos.${index}.title`}>Video Title</Label>
+                    <Input id={`videos.${index}.title`} {...form.register(`videos.${index}.title`)} />
+                    {form.formState.errors.videos?.[index]?.title && <p className="text-red-500 text-sm">{form.formState.errors.videos?.[index]?.title?.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor={`videos.${index}.youtube_url`}>YouTube URL</Label>
+                    <Input id={`videos.${index}.youtube_url`} {...form.register(`videos.${index}.youtube_url`)} />
+                    {form.formState.errors.videos?.[index]?.youtube_url && <p className="text-red-500 text-sm">{form.formState.errors.videos?.[index]?.youtube_url?.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor={`videos.${index}.description`}>Video Description</Label>
+                    <Textarea id={`videos.${index}.description`} {...form.register(`videos.${index}.description`)} />
+                    {form.formState.errors.videos?.[index]?.description && <p className="text-red-500 text-sm">{form.formState.errors.videos?.[index]?.description?.message}</p>}
                   </div>
                 </div>
-              </Card>
-            ))}
-          </TabsContent>
+              ))}
+              <Button type="button" variant="outline" onClick={() => append({ youtube_url: '', title: '', description: '' })}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Video
+              </Button>
+            </div>
 
-          <TabsContent value="published" className="space-y-4">
-            {publishedCourses.map((course) => (
-              <Card key={course.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-                <div className="flex items-center space-x-6">
-                  <img 
-                    src={course.image}
-                    alt={course.title}
-                    className="w-24 h-24 rounded-lg object-cover"
-                  />
-                  
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="text-xl font-semibold">{course.title}</h3>
-                        <Badge className={getStatusColor(course.status)}>
-                          {course.status}
-                        </Badge>
-                        <Badge variant="outline">{course.category}</Badge>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <p className="text-muted-foreground">by {course.instructor}</p>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Students: </span>
-                        <span className="font-medium">{course.students.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Revenue: </span>
-                        <span className="font-medium text-green-500">{course.revenue}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Rating: </span>
-                        <span className="font-medium">{course.rating}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Lessons: </span>
-                        <span className="font-medium">{course.lessons}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </TabsContent>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+              </DialogClose>
+              <Button type="submit">{selectedCourse ? 'Update' : 'Create'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-          <TabsContent value="drafts" className="space-y-4">
-            {draftCourses.map((course) => (
-              <Card key={course.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-                <div className="flex items-center space-x-6">
-                  <img 
-                    src={course.image}
-                    alt={course.title}
-                    className="w-24 h-24 rounded-lg object-cover"
-                  />
-                  
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="text-xl font-semibold">{course.title}</h3>
-                        <Badge className={getStatusColor(course.status)}>
-                          {course.status}
-                        </Badge>
-                        <Badge variant="outline">{course.category}</Badge>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">Continue Editing</Button>
-                        <Button className="btn-neon" size="sm">Publish Course</Button>
-                      </div>
-                    </div>
-                    
-                    <p className="text-muted-foreground">by {course.instructor}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Created on {new Date(course.createdDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </TabsContent>
-        </Tabs>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the course.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Courses Table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Enrollments</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created At</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
+            ) : courses.length > 0 ? (
+              courses.map((course) => (
+                <TableRow key={course.id}>
+                  <TableCell className="font-medium">{course.title}</TableCell>
+                  <TableCell>${course.price}</TableCell>
+                  <TableCell>{course.total_enrollments}</TableCell>
+                  <TableCell>{course.status}</TableCell>
+                  <TableCell>{new Date(course.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link to={`/admin/courses/${course.id}`} className="flex items-center">
+                              <Eye className="mr-2 h-4 w-4" /> View Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEdit(course.id)}>
+                            <Edit className="mr-2 h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setCourseToDelete(course.id);
+                            setIsDeleteDialogOpen(true);
+                          }} className="text-red-600">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow><TableCell colSpan={6} className="text-center">No courses found.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
     </DashboardLayout>
   );

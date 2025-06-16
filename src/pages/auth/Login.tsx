@@ -21,17 +21,23 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const formData = new FormData();
-    formData.append('username', email);
-    formData.append('password', password);
-
+    let response, data;
     try {
-      const response = await fetch('/api/auth/token', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
+      const formData = new FormData();
+      formData.append('username', email);
+      formData.append('password', password);
+      if (userType === "admin") {
+        response = await fetch('/api/auth/admin-login', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        response = await fetch('/api/auth/token', {
+          method: 'POST',
+          body: formData,
+        });
+      }
+      data = await response.json();
 
       if (response.ok) {
         localStorage.setItem('accessToken', data.access_token);

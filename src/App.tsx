@@ -20,10 +20,12 @@ import QuizResult from "./pages/student/QuizResult";
 import StudentPayment from "./pages/student/Payment";
 import StudentProfile from "./pages/student/Profile";
 import AdminDashboard from "./pages/admin/Dashboard";
-import AdminCourses from "./pages/admin/Courses";
+import AdminCourses from './pages/admin/Courses';
+import AdminCourseDetail from './pages/admin/CourseDetail';
+import AdminNotifications from './pages/admin/Notifications';
 import AdminStudents from "./pages/admin/Students";
 import AdminEnrollments from "./pages/admin/Enrollments";
-import AdminAnalytics from "./pages/admin/Analytics";
+
 import ManageAssignments from "./pages/admin/ManageAssignments";
 import ManageQuizzes from "./pages/admin/ManageQuizzes";
 import NotFound from "./pages/NotFound";
@@ -59,12 +61,12 @@ const App = () => (
           {/* Admin Routes */}
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/courses" element={<AdminCourses />} />
+          <Route path="/admin/courses/:courseId" element={<AdminCourseDetail />} />
+          <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/students" element={<AdminStudents />} />
           <Route path="/admin/enrollments" element={<AdminEnrollments />} />
-          <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/manage-assignments" element={<ManageAssignments />} />
           <Route path="/admin/manage-quizzes" element={<ManageQuizzes />} />
-          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
