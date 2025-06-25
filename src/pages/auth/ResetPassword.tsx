@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,12 +11,13 @@ const ResetPassword = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (password !== confirmPassword) {
       toast({
         title: "Error",
@@ -26,7 +26,6 @@ const ResetPassword = () => {
       });
       return;
     }
-
     if (password.length < 8) {
       toast({
         title: "Error",
@@ -35,12 +34,41 @@ const ResetPassword = () => {
       });
       return;
     }
-
-    toast({
-      title: "Password Reset Successful!",
-      description: "Your password has been updated. Please sign in with your new password.",
-    });
-    navigate("/login");
+    if (!email || !pin) {
+      toast({
+        title: "Error",
+        description: "Please enter your email and PIN.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const response = await fetch('https://student-portal-lms-red.vercel.app/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, pin, new_password: password }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Password Reset Successful!",
+          description: data.message || "Your password has been updated. Please sign in with your new password.",
+        });
+        navigate("/login");
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to reset password.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

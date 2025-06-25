@@ -43,7 +43,7 @@ const Signup = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('https://student-portal-lms-git-main-arsalans-projects-4d19f3c6.vercel.app/api/auth/api/auth/signup', {
+      const response = await fetch('https://student-portal-lms-red.vercel.app/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

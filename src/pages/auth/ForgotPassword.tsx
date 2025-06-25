@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,19 +12,40 @@ const ForgotPassword = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (email) {
-      toast({
-        title: "Reset Link Sent!",
-        description: "Check your email for password reset instructions.",
-      });
-      setIsSubmitted(true);
-    } else {
+    if (!email) {
       toast({
         title: "Error",
         description: "Please enter your email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const response = await fetch('https://student-portal-lms-red.vercel.app/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Reset Link Sent!",
+          description: data.message || "Check your email for password reset instructions.",
+        });
+        setIsSubmitted(true);
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to send reset link.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     }
