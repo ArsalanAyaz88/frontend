@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -26,13 +25,14 @@ const Login = () => {
       const formData = new FormData();
       formData.append('username', email);
       formData.append('password', password);
+      
       if (userType === "admin") {
-        response = await fetch('/api/auth/admin-login', {
+        response = await fetch('https://student-portal-lms-git-main-arsalans-projects-4d19f3c6.vercel.app/api/auth/api/auth/admin-login', {
           method: 'POST',
           body: formData,
         });
       } else {
-        response = await fetch('/api/auth/token', {
+        response = await fetch('https://student-portal-lms-git-main-arsalans-projects-4d19f3c6.vercel.app/api/auth/api/auth/token', {
           method: 'POST',
           body: formData,
         });
@@ -40,31 +40,22 @@ const Login = () => {
       data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('accessToken', data.access_token);
-
-        // Fetch user profile to get full_name and store session
-        try {
-          const profileResponse = await fetch('/api/profile/profile', {
-            headers: { 'Authorization': `Bearer ${data.access_token}` }
-          });
-          const profileData = await profileResponse.json();
-          if (profileResponse.ok) {
-            const userSession = {
-              email: email,
-              full_name: profileData.full_name,
-            };
-            localStorage.setItem('user', JSON.stringify(userSession));
-          } else {
-            localStorage.setItem('user', JSON.stringify({ email }));
-          }
-        } catch (profileError) {
-          console.error("Could not fetch profile after login:", profileError);
-          localStorage.setItem('user', JSON.stringify({ email }));
+        // Store access token if available (admin login provides it)
+        if (data.access_token) {
+          localStorage.setItem('accessToken', data.access_token);
         }
+
+        // Store user session data
+        const userSession = {
+          email: email,
+          role: userType,
+          full_name: data.full_name || email.split('@')[0], // Fallback to email prefix if no full_name
+        };
+        localStorage.setItem('user', JSON.stringify(userSession));
 
         toast({
           title: "Login Successful!",
-          description: `Welcome back to EduVerse!`,
+          description: data.message || `Welcome back to EduVerse!`,
         });
         
         const enrollCourseId = localStorage.getItem('enrollCourseId');
@@ -82,11 +73,12 @@ const Login = () => {
       } else {
         toast({
           title: "Login Failed",
-          description: data.detail || "Invalid credentials",
+          description: data.detail || data.message || "Invalid credentials",
           variant: "destructive",
         });
       }
     } catch (error) {
+      console.error("Login error:", error);
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",

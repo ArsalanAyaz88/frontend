@@ -11,6 +11,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const headers = new Headers(options.headers);
 
+  // Do NOT set Authorization header from localStorage
+
   // When uploading a file with FormData, the browser automatically sets the
   // Content-Type to 'multipart/form-data' with the correct boundary.
   // Manually setting it, even to the same value, can cause issues.

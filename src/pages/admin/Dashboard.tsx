@@ -23,7 +23,7 @@ const AdminDashboard = () => {
       setError(null);
       try {
         const response = await fetchWithAuth(
-          "/api/admin/dashboard/stats"
+          "https://student-portal-lms-red.vercel.app/api/admin/dashboard/stats"
         );
         const data = await handleApiResponse(response);
         setStats(data);

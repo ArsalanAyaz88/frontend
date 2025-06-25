@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,7 @@ const Signup = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch('https://student-portal-lms-git-main-arsalans-projects-4d19f3c6.vercel.app/api/auth/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,8 +58,8 @@ const Signup = () => {
 
       if (response.ok) {
         toast({
-          title: "Account Created!",
-          description: "Welcome to EduVerse! Please login to continue.",
+          title: "Account Created Successfully!",
+          description: `Welcome ${formData.firstName}! Your account has been created with role: ${data.role}. Please login to continue.`,
         });
         navigate("/login");
       } else {
@@ -71,6 +70,7 @@ const Signup = () => {
         });
       }
     } catch (error) {
+      console.error("Signup error:", error);
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
