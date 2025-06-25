@@ -22,28 +22,24 @@ const Login = () => {
 
     let response, data;
     try {
-      const formData = new FormData();
-      formData.append('username', email);
-      formData.append('password', password);
-      
-      if (userType === "admin") {
-        response = await fetch('https://student-portal-lms-red.vercel.app/api/auth/admin-login', {
-          method: 'POST',
-          body: formData,
-        });
-      } else {
-        response = await fetch('https://student-portal-lms-red.vercel.app/api/auth/token', {
-          method: 'POST',
-          body: formData,
-        });
-      }
+      const body = new URLSearchParams();
+      body.append('username', email);
+      body.append('password', password);
+
+      const url = userType === "admin"
+        ? 'https://student-portal-lms-red.vercel.app/api/auth/admin-login'
+        : 'https://student-portal-lms-red.vercel.app/api/auth/token';
+
+      response = await fetch(url, {
+        method: 'POST',
+        body: body,
+        credentials: 'include', // Send cookies with the request
+      });
       data = await response.json();
 
       if (response.ok) {
-        // Store access token if available (admin login provides it)
-        if (data.access_token) {
-          localStorage.setItem('accessToken', data.access_token);
-        }
+        // The access token is now handled by HttpOnly cookies set by the backend.
+        // We no longer need to store it in localStorage.
 
         // Store user session data
         const userSession = {

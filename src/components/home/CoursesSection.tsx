@@ -46,8 +46,8 @@ const CoursesSection = () => {
   }, []);
 
   const handleEnrollClick = (courseId: string) => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (accessToken) {
+    const user = localStorage.getItem('user');
+    if (user) {
       // User is logged in, redirect to payment page with course id
       navigate(`/student/payment?course_id=${courseId}`);
     } else {

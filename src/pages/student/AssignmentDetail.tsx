@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Upload, Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { fetchWithAuth } from "@/lib/api";
 
 const handleApiResponse = async (res: Response) => {
   if (!res.ok) {
@@ -51,9 +52,7 @@ const AssignmentDetailPage = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('accessToken');
-        const headers = { 'Authorization': `Bearer ${token}` };
-        const res = await fetch(`/api/courses/${courseId}/assignments/${assignmentId}`, { headers });
+        const res = await fetchWithAuth(`/api/courses/${courseId}/assignments/${assignmentId}`);
         const data = await handleApiResponse(res);
         setAssignment(data);
       } catch (err: any) {
@@ -84,20 +83,18 @@ const AssignmentDetailPage = () => {
     }
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('accessToken');
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const res = await fetch(`/api/courses/${courseId}/assignments/${assignmentId}/submissions`, {
+      const res = await fetchWithAuth(`/api/courses/${courseId}/assignments/${assignmentId}/submissions`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       });
 
       const data = await handleApiResponse(res);
       toast({ title: "Success", description: data.detail || "Assignment submitted successfully." });
       
-      const refreshRes = await fetch(`/api/courses/${courseId}/assignments/${assignmentId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const refreshRes = await fetchWithAuth(`/api/courses/${courseId}/assignments/${assignmentId}`);
       const refreshedData = await handleApiResponse(refreshRes);
       setAssignment(refreshedData);
 

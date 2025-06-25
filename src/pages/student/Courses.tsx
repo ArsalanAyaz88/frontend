@@ -43,25 +43,10 @@ const Courses = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('accessToken');
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        };
-
         const [enrolledRes, exploreRes] = await Promise.all([
-          fetch('/api/courses/my-courses', { headers }),
-          fetch('/api/courses/explore-courses', { headers }),
+          fetchWithAuth('/api/courses/my-courses'),
+          fetchWithAuth('/api/courses/explore-courses'),
         ]);
-
-        if (!enrolledRes.ok) {
-          const errorData = await enrolledRes.json();
-          throw new Error(`Failed to fetch enrolled courses: ${errorData.detail || enrolledRes.statusText}`);
-        }
-        if (!exploreRes.ok) {
-            const errorData = await exploreRes.json();
-            throw new Error(`Failed to fetch explore courses: ${errorData.detail || exploreRes.statusText}`);
-        }
 
         const enrolledData = await enrolledRes.json();
         const exploreData = await exploreRes.json();

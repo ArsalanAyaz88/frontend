@@ -131,39 +131,17 @@ const Profile = () => {
     const formData = new FormData();
     formData.append('image_upload', file);
 
-    // Bypassing fetchWithAuth to create a raw fetch request.
-    // This ensures the browser can set the 'Content-Type' for FormData correctly.
-    const token = localStorage.getItem('accessToken');
-    const headers = new Headers();
-    if (token) {
-      headers.append('Authorization', `Bearer ${token}`);
-    }
-    // Do NOT set 'Content-Type'. The browser needs to set it with a boundary for multipart/form-data.
-
     try {
-      const response = await fetch('/api/profile/profile/avatar', {
+      await fetchWithAuth('/api/profile/profile/avatar', {
         method: 'POST',
-        headers: headers,
         body: formData,
       });
 
-      if (response.ok) {
-        toast({
-          title: "Upload Successful",
-          description: "Refreshing profile...",
-        });
-        await fetchProfile(); // Re-fetch the profile to get the new avatar URL
-      } else {
-        // Manually handle 401 Unauthorized since we are not using fetchWithAuth
-        if (response.status === 401) {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('user');
-          toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
-          navigate('/login');
-          return; // Stop further execution
-        }
-        throw new Error(`Upload failed with status: ${response.status}`);
-      }
+      toast({
+        title: "Upload Successful",
+        description: "Refreshing profile...",
+      });
+      await fetchProfile(); // Re-fetch the profile to get the new avatar URL
     } catch (err) {
       setProfileData(originalProfileData); // Revert on failure
       console.error("Avatar upload error:", err);
