@@ -129,14 +129,14 @@ const Profile = () => {
     setProfileData(prev => prev ? { ...prev, avatarUrl: previewUrl } : null);
 
     const formData = new FormData();
-    formData.append('image_upload', file);
+    formData.append('file', file);
 
     try {
-      await fetchWithAuth('/api/profile/profile/avatar', {
+      const response = await fetchWithAuth('/api/profile/profile/avatar', {
         method: 'POST',
         body: formData,
       });
-
+      await response.json();
       toast({
         title: "Upload Successful",
         description: "Refreshing profile...",
