@@ -109,6 +109,7 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
           <Button 
             variant="ghost" 
             onClick={() => {
+              localStorage.clear(); // Clear user session
               toast({
                 title: "Logged Out",
                 description: "You have been successfully logged out.",

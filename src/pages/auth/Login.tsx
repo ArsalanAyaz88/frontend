@@ -49,14 +49,12 @@ const Login = () => {
         data = await response.json();
         console.log('Login Response:', data);
 
-        // The access token is now handled by HttpOnly cookies set by the backend.
-        // We no longer need to store it in localStorage.
-
-        // Store user session data
+        // Store user session data, including the access token from the response
         const userSession = {
           email: email,
           role: userType,
           full_name: data.full_name || email.split('@')[0], // Fallback to email prefix if no full_name,
+          access_token: data.access_token, // Store the token
         };
         localStorage.setItem('user', JSON.stringify(userSession));
 

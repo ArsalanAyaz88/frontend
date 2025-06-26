@@ -33,7 +33,7 @@ const Profile = () => {
   const fetchProfile = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetchWithAuth('/api/profile/profile');
+                              const response = await fetchWithAuth('/profile');
       const data = await response.json();
       
       const userSession = JSON.parse(localStorage.getItem('user') || '{}');
@@ -67,7 +67,7 @@ const Profile = () => {
     if (!profileData) return;
 
     try {
-      const response = await fetchWithAuth('/api/profile/profile', {
+                              const response = await fetchWithAuth('/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,11 +132,11 @@ const Profile = () => {
     formData.append('image_upload', file);
 
     try {
-      await fetchWithAuth('/api/profile/profile/avatar', {
+            const response = await fetchWithAuth('/profile/avatar', {
         method: 'POST',
         body: formData,
       });
-
+      await response.json();
       toast({
         title: "Upload Successful",
         description: "Refreshing profile...",
