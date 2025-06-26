@@ -129,7 +129,7 @@ const Profile = () => {
     setProfileData(prev => prev ? { ...prev, avatarUrl: previewUrl } : null);
 
     const formData = new FormData();
-    formData.append('image_upload', file);
+    formData.append('file', file);
 
     try {
       const response = await fetchWithAuth('/api/profile/profile/avatar', {
