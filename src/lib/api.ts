@@ -10,15 +10,16 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const headers = new Headers(options.headers);
+  const newOptions: RequestInit = { ...options, headers };
 
-  // Do NOT set Authorization header from localStorage
+  // If an Authorization header is not provided, use cookie-based auth.
+  if (!headers.has('Authorization')) {
+    newOptions.credentials = 'include';
+  }
 
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
 
-
-  const fullUrl = `${API_BASE_URL}${url}`;
-
-  // Always include credentials (cookies) for authentication
-  const response = await fetch(fullUrl, { ...options, headers, credentials: 'include' });
+  const response = await fetch(fullUrl, newOptions);
 
   if (response.status === 401) {
     throw new UnauthorizedError();

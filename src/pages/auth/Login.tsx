@@ -27,13 +27,12 @@ const Login = () => {
       body.append('password', password);
 
       const url = userType === "admin"
-        ? 'https://student-portal-lms-red.vercel.app/api/auth/admin-login'
-        : 'https://student-portal-lms-red.vercel.app/api/auth/token';
+        ? 'https://student-portal-lms-seven.vercel.app/api/auth/admin-login'
+        : 'https://student-portal-lms-seven.vercel.app/api/auth/token';
 
       response = await fetch(url, {
         method: 'POST',
-        body: body,
-        credentials: 'include', // Send cookies with the request
+        body: body, // Send cookies with the request
       });
       data = await response.json();
 
@@ -48,6 +47,10 @@ const Login = () => {
           full_name: data.full_name || email.split('@')[0], // Fallback to email prefix if no full_name
         };
         localStorage.setItem('user', JSON.stringify(userSession));
+
+        if (userType === 'admin' && data.access_token) {
+          localStorage.setItem('admin_access_token', data.access_token);
+        }
 
         toast({
           title: "Login Successful!",
