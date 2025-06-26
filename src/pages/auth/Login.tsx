@@ -27,17 +27,28 @@ const Login = () => {
       body.append('password', password);
 
       const url = userType === "admin"
-        ? 'https://student-portal-lms-red.vercel.app/api/auth/admin-login'
-        : 'https://student-portal-lms-red.vercel.app/api/auth/token';
+        ? 'https://student-portal-lms-seven.vercel.app/api/auth/admin-login'
+        : 'https://student-portal-lms-seven.vercel.app/api/auth/token';
 
-      response = await fetch(url, {
-        method: 'POST',
-        body: body,
-        credentials: 'include', // Send cookies with the request
-      });
-      data = await response.json();
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          body: body,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API Error Response:', errorData);
+          throw new Error(errorData.detail || errorData.message || 'Invalid credentials');
+        }
+        
+        data = await response.json();
+        console.log('Login Response:', data);
 
-      if (response.ok) {
         // The access token is now handled by HttpOnly cookies set by the backend.
         // We no longer need to store it in localStorage.
 
@@ -45,7 +56,7 @@ const Login = () => {
         const userSession = {
           email: email,
           role: userType,
-          full_name: data.full_name || email.split('@')[0], // Fallback to email prefix if no full_name
+          full_name: data.full_name || email.split('@')[0], // Fallback to email prefix if no full_name,
         };
         localStorage.setItem('user', JSON.stringify(userSession));
 
@@ -66,20 +77,24 @@ const Login = () => {
             navigate("/student/dashboard");
           }
         }
-      } else {
-        toast({
-          title: "Login Failed",
-          description: data.detail || data.message || "Invalid credentials",
-          variant: "destructive",
-        });
+      } catch (error) {
+        console.error("Login error:", error);
+        
+        // Handle specific error cases
+        if (error instanceof Error) {
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: "An unexpected error occurred. Please try again.",
+            variant: "destructive",
+          });
+        }
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }
