@@ -48,55 +48,55 @@ const Login = () => {
       data = await response.json();
       console.log('Login Response:', data);
 
-        // The access token is now handled by HttpOnly cookies set by the backend.
-        // We no longer need to store it in localStorage.
+      // The access token is now handled by HttpOnly cookies set by the backend.
+      // We no longer need to store it in localStorage.
 
-        // Store user session data
-        const userSession = {
-          email: email,
-          role: userType,
-          full_name: data.full_name || email.split('@')[0], // Fallback to email prefix if no full_name,
-        };
-        localStorage.setItem('user', JSON.stringify(userSession));
 
-        if (userType === 'admin' && data.access_token) {
-          localStorage.setItem('admin_access_token', data.access_token);
+      // Store user session data
+      const userSession = {
+        email: email,
+        role: userType,
+        full_name: data.full_name || email.split('@')[0] // Fallback to email prefix if no full_name
+      };
+      localStorage.setItem('user', JSON.stringify(userSession));
+
+      if (userType === 'admin' && data.access_token) {
+        localStorage.setItem('admin_access_token', data.access_token);
+      }
+
+      toast({
+        title: "Login Successful!",
+        description: data.message || `Welcome back to EduVerse!`,
+      });
+      
+      const enrollCourseId = localStorage.getItem('enrollCourseId');
+      if (enrollCourseId) {
+        localStorage.removeItem('enrollCourseId');
+        navigate(`/student/payment?course_id=${enrollCourseId}`);
+      } else {
+        // Redirect based on user type
+        if (userType === 'admin') {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/student/dashboard");
         }
-
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      
+      // Handle specific error cases
+      if (error instanceof Error) {
         toast({
-          title: "Login Successful!",
-          description: data.message || `Welcome back to EduVerse!`,
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive",
         });
-        
-        const enrollCourseId = localStorage.getItem('enrollCourseId');
-        if (enrollCourseId) {
-          localStorage.removeItem('enrollCourseId');
-          navigate(`/student/payment?course_id=${enrollCourseId}`);
-        } else {
-          // Redirect based on user type
-          if (userType === 'admin') {
-            navigate("/admin/dashboard");
-          } else {
-            navigate("/student/dashboard");
-          }
-        }
-      } catch (error) {
-        console.error("Login error:", error);
-        
-        // Handle specific error cases
-        if (error instanceof Error) {
-          toast({
-            title: "Login Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "An unexpected error occurred. Please try again.",
-            variant: "destructive",
-          });
-        }
+      } else {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
       }
     } finally {
       setIsLoading(false);
