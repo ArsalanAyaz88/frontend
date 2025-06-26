@@ -1,30 +1,53 @@
 
+import { useEffect, useState } from "react";
+import { fetchWithAuth } from "@/lib/api";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Search, Filter, Mail, Eye, MoreHorizontal, Users, UserCheck, UserX, Clock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, Mail, Eye, MoreHorizontal, User, UserCheck, UserX, Clock, Filter, Download, Plus, Loader2, Users } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { useEffect, useState } from "react";
-import { fetchWithAuth } from "@/lib/api";
+interface Student {
+  id: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  last_active?: string;
+  created_at?: string;
+}
 
 const AdminStudents = () => {
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState("all");
 
   useEffect(() => {
     const fetchStudents = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchWithAuth("/api/admin/users");
+        const token = localStorage.getItem('admin_access_token');
+        const response = await fetchWithAuth(
+          "https://student-portal-lms-seven.vercel.app/api/admin/users",
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
         if (!response.ok) throw new Error("Failed to fetch students");
         const data = await response.json();
         setStudents(data);
+        setFilteredStudents(data);
       } catch (err: any) {
         setError(err.message || "Failed to load students");
       } finally {
@@ -34,52 +57,252 @@ const AdminStudents = () => {
     fetchStudents();
   }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-500/20 text-green-500';
-      case 'inactive': return 'bg-yellow-500/20 text-yellow-500';
-      case 'suspended': return 'bg-red-500/20 text-red-500';
-      default: return 'bg-gray-500/20 text-gray-500';
+  useEffect(() => {
+    let result = [...students];
+    
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(student => 
+        student.email.toLowerCase().includes(term) ||
+        student.id.toLowerCase().includes(term)
+      );
     }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      const isActive = statusFilter === "active";
+      result = result.filter(student => student.is_active === isActive);
+    }
+
+    // Apply tab filter
+    if (activeTab === "active") {
+      result = result.filter(student => student.is_active);
+    } else if (activeTab === "inactive") {
+      result = result.filter(student => !student.is_active);
+    }
+
+    setFilteredStudents(result);
+  }, [searchTerm, statusFilter, activeTab, students]);
+
+  const getStatusBadge = (isActive: boolean) => {
+    return isActive ? (
+      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+        <UserCheck className="h-3 w-3 mr-1" />
+        Active
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="text-gray-500">
+        <UserX className="h-3 w-3 mr-1" />
+        Inactive
+      </Badge>
+    );
   };
 
-  const getCourseStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-500/20 text-green-500';
-      case 'in-progress': return 'bg-blue-500/20 text-blue-500';
-      case 'not-started': return 'bg-gray-500/20 text-gray-500';
-      default: return 'bg-gray-500/20 text-gray-500';
-    }
+  const getInitials = (email: string) => {
+    return email.substring(0, 2).toUpperCase();
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
     <DashboardLayout userType="admin">
-      <div className="space-y-8">
-        <h1 className="text-3xl font-bold mb-2">students' list</h1>
-        {loading && <div>Loading students...</div>}
-        {error && <div className="text-red-600">{error}</div>}
-        {!loading && !error && (
-          <div className="space-y-4">
-            {students.length === 0 ? (
-              <div>No students found.</div>
-            ) : (
-              students.map((student) => (
-                <div key={student.id} className="bg-white rounded-lg shadow p-6 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center space-x-3">
-                      <h3 className="text-xl font-semibold">{student.name || student.full_name || student.username || student.email}</h3>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(student.status)}`}>
-                        {student.status || 'unknown'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">Email: <span className="text-foreground">{student.email}</span></div>
-                    <div className="text-sm text-muted-foreground">Last Active: <span className="text-foreground">{student.last_active ? new Date(student.last_active).toLocaleDateString() : 'N/A'}</span></div>
-                  </div>
-                </div>
-              ))
-            )}
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Students</h1>
+            <p className="text-muted-foreground">
+              Manage and monitor student accounts
+            </p>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-10"
+              onClick={() => {
+                // Convert students data to CSV
+                const headers = ['ID', 'Email', 'Role', 'Status'];
+                const csvContent = [
+                  headers.join(','),
+                  ...filteredStudents.map(student => (
+                    [
+                      `"${student.id}"`,
+                      `"${student.email}"`,
+                      `"${student.role}"`,
+                      `"${student.is_active ? 'Active' : 'Inactive'}"`
+                    ].join(',')
+                  ))
+                ].join('\n');
+
+                // Create download link
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `students_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <div className="p-4 border-b">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <Tabs 
+                defaultValue="all" 
+                onValueChange={setActiveTab}
+                className="w-full md:w-auto"
+              >
+                <TabsList>
+                  <TabsTrigger value="all" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    All
+                  </TabsTrigger>
+                  <TabsTrigger value="active" className="flex items-center gap-2">
+                    <UserCheck className="h-4 w-4" />
+                    Active
+                  </TabsTrigger>
+                  <TabsTrigger value="inactive" className="flex items-center gap-2">
+                    <UserX className="h-4 w-4" />
+                    Inactive
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
+              <div className="flex gap-2 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search students..."
+                    className="pl-10 w-full"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-10 px-3">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filter
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[200px]">
+                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>
+                      All Status
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("active")}>
+                      Active
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>
+                      Inactive
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+
+          <CardContent className="p-0">
+            {error ? (
+              <div className="p-8 text-center text-destructive">
+                <p>{error}</p>
+                <Button variant="ghost" onClick={() => window.location.reload()} className="mt-4">
+                  Retry
+                </Button>
+              </div>
+            ) : filteredStudents.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-muted-foreground">No students found matching your criteria.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.map((student) => (
+                      <TableRow key={student.id} className="group">
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarFallback className="bg-primary/10 text-primary">
+                                {getInitials(student.email)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">
+                                {student.email.split('@')[0]}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {student.id.substring(0, 8)}...
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(student.is_active)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {student.email}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {student.role.charAt(0).toUpperCase() + student.role.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Profile
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Send Message
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                <UserX className="mr-2 h-4 w-4" />
+                                {student.is_active ? 'Deactivate' : 'Activate'} Account
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

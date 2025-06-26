@@ -41,7 +41,17 @@ const AdminCourseDetail = () => {
       if (!courseId) return;
       setLoading(true);
       try {
-        const response = await fetchWithAuth(`/api/admin/courses/${courseId}`);
+        const token = localStorage.getItem('admin_access_token');
+        const response = await fetchWithAuth(
+          `https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseId}`,
+          { 
+            method: 'GET',
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
         const data = await handleApiResponse(response);
         setCourse(data);
       } catch (error) {

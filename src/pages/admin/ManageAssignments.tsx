@@ -114,7 +114,7 @@ const ManageAssignments = () => {
       setLoading(prev => ({ ...prev, assignments: true }));
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse}/assignments`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${selectedCourse}/assignments`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -162,6 +162,7 @@ const ManageAssignments = () => {
       toast.error('Please fill all fields.');
       return;
     }
+    
     const body = {
       title: assignmentTitle,
       description: assignmentDesc,
@@ -169,15 +170,26 @@ const ManageAssignments = () => {
       course_id: selectedCourse
     };
 
-    const baseUrl = 'https://student-portal-lms-seven.vercel.app/api/admin';
-    const url = editingAssignment
-      ? `${baseUrl}/courses/${selectedCourse}/assignments/${editingAssignment.id}`
-      : `${baseUrl}/courses/${selectedCourse}/assignments`;
+    const baseUrl = 'https://student-portal-lms-seven.vercel.app/api';
+    const endpoint = editingAssignment
+      ? `/admin/courses/${selectedCourse}/assignments/${editingAssignment.id}`
+      : `/admin/courses/${selectedCourse}/assignments`;
+      
     const method = editingAssignment ? 'PUT' : 'POST';
     const token = localStorage.getItem('admin_access_token');
 
     try {
-      const response = await fetchWithAuth(url, {
+      console.log('Sending request to:', `${baseUrl}${endpoint}`);
+      console.log('Request body:', body);
+      
+      console.log('Sending request with method:', method);
+      console.log('Full URL:', `${baseUrl}${endpoint}`);
+      console.log('Request headers:', {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      });
+      
+      const response = await fetchWithAuth(`${baseUrl}${endpoint}`, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -185,12 +197,38 @@ const ManageAssignments = () => {
         },
         body: JSON.stringify(body)
       });
-      await handleApiResponse(response);
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Try to read the response body for more details
+      const responseText = await response.text();
+      let responseData;
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+        console.log('Response data:', responseData);
+      } catch (e) {
+        console.log('Raw response text:', responseText);
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+      
+      if (!response.ok) {
+        throw new Error(responseData.detail || responseData.message || `HTTP error! Status: ${response.status}`);
+      }
+      
+      console.log('API Response:', responseData);
+      
       toast.success(`Assignment ${editingAssignment ? 'updated' : 'created'} successfully!`);
       setIsAssignmentModalOpen(false);
       fetchAssignments();
-    } catch (error) {
-      toast.error(`Failed to ${editingAssignment ? 'update' : 'create'} assignment.`);
+    } catch (error: any) {
+      console.error('Error saving assignment:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        response: error.response
+      });
+      toast.error(error.message || `Failed to ${editingAssignment ? 'update' : 'create'} assignment.`);
     }
   };
 
@@ -199,7 +237,7 @@ const ManageAssignments = () => {
     try {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse}/assignments/${assignmentId}`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${selectedCourse}/assignments/${assignmentId}`,
         {
           method: 'DELETE',
           headers: {
@@ -225,7 +263,7 @@ const ManageAssignments = () => {
       setLoading(prev => ({ ...prev, submissions: true }));
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${assignment.course_id}/assignments/${assignment.id}/submissions/students`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${assignment.course_id}/assignments/${assignment.id}/submissions/students`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -247,7 +285,7 @@ const ManageAssignments = () => {
     try {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${viewingSubmissionsFor.course_id}/assignments/${viewingSubmissionsFor.id}/submissions/${gradingSubmission.id}/grade`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${viewingSubmissionsFor.course_id}/assignments/${viewingSubmissionsFor.id}/submissions/${gradingSubmission.id}/grade`,
         {
           method: 'POST',
           headers: {
