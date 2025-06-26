@@ -46,21 +46,25 @@ const Payment = () => {
       setError(null);
       try {
         if (courseId) {
-          const [purchaseInfoRes, statusRes] = await Promise.all([
-            fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`),
-            fetchWithAuth(`/api/enrollments/enrollments/${courseId}/status`)
-          ]);
-
+          // Fetch purchase info first, as it's required to render the form.
+          const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/api/enrollments/courses/${courseId}/purchase-info`);
           const purchaseData = await handleApiResponse(purchaseInfoRes);
           setPurchaseInfo(purchaseData);
 
-          if (statusRes.status === 404) {
-            setEnrollmentStatus(null); // Not enrolled yet
-          } else if (statusRes.ok) {
-            const statusData = await handleApiResponse(statusRes);
-            setEnrollmentStatus(statusData.status);
-
-          } else {
+          // Then, fetch the enrollment status, which might not exist yet.
+          try {
+            const statusRes = await fetchWithAuth(`/api/enrollments/api/enrollments/${courseId}/status`);
+            if (statusRes.ok) {
+              const statusData = await handleApiResponse(statusRes);
+              setEnrollmentStatus(statusData.status);
+            } else {
+              // A 404 or other non-ok status means not enrolled or no status yet.
+              setEnrollmentStatus(null);
+            }
+          } catch (statusError) {
+            // If fetching status fails, we assume the user is not enrolled and can proceed.
+            // This prevents the page from crashing if the status endpoint returns an error.
+            console.warn("Could not fetch enrollment status, assuming not enrolled:", statusError);
             setEnrollmentStatus(null);
           }
         } else {
@@ -71,7 +75,7 @@ const Payment = () => {
             const enrollmentsWithStatus = await Promise.all(
               coursesData.map(async (course: any) => {
                 try {
-                  const statusRes = await fetchWithAuth(`/api/enrollments/enrollments/${course.id}/status`);
+                  const statusRes = await fetchWithAuth(`/api/enrollments/api/enrollments/${course.id}/status`);
                   let status: 'pending' | 'rejected' | 'enrolled' | 'not_enrolled' = 'not_enrolled';
                   if (statusRes.ok) {
                     const statusData = await handleApiResponse(statusRes);
@@ -153,7 +157,7 @@ const Payment = () => {
 
     try {
       // The endpoint uses the courseId from the URL.
-      const response = await fetchWithAuth(`/api/enrollments/enrollments/${courseId}/payment-proof`, {
+      const response = await fetchWithAuth(`/api/enrollments/api/enrollments/${courseId}/payment-proof`, {
         method: 'POST',
         body: formData,
       });

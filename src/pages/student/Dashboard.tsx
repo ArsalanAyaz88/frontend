@@ -85,7 +85,7 @@ const Dashboard = () => {
       setIsLoadingCourses(true);
       try {
         // IMPORTANT: Replace with your actual endpoint to get enrolled courses
-        const response = await fetchWithAuth('/api/courses/enrolled'); 
+        const response = await fetchWithAuth('/api/courses/my-courses'); 
         const data = await response.json();
         setCourses(data.courses || []); // Assuming API returns { courses: [...] }
       } catch (err) {
