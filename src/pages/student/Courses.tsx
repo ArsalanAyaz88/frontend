@@ -38,27 +38,22 @@ const Courses = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [isEnrolledLoading, setIsEnrolledLoading] = useState(false);
 
+  // Fetch explore courses on initial load
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchExploreCourses = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [enrolledRes, exploreRes] = await Promise.all([
-          fetchWithAuth('/api/courses/my-courses'),
-          fetchWithAuth('/api/courses/explore-courses'),
-        ]);
-
-        const enrolledData = await enrolledRes.json();
-        const exploreData = await exploreRes.json();
-
-        setEnrolledCourses(enrolledData);
-        setExploreCourses(exploreData);
+        const res = await fetchWithAuth('/api/courses/explore-courses');
+        const data = await res.json();
+        setExploreCourses(data);
       } catch (err: any) {
         setError(err.message);
         toast({
           title: "Error",
-          description: err.message || "Could not fetch course data. Please try again later.",
+          description: "Could not fetch courses to explore. Please try again later.",
           variant: "destructive",
         });
       } finally {
@@ -66,8 +61,34 @@ const Courses = () => {
       }
     };
 
-    fetchCourses();
+    fetchExploreCourses();
   }, [toast]);
+
+  const fetchEnrolledCourses = async () => {
+    // Prevent re-fetching if data already exists or is currently loading
+    if (enrolledCourses.length > 0 || isEnrolledLoading) return;
+
+    setIsEnrolledLoading(true);
+    try {
+      const res = await fetchWithAuth('/api/courses/my-courses');
+      const data = await res.json();
+      setEnrolledCourses(data);
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: "Could not fetch your enrolled courses.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnrolledLoading(false);
+    }
+  };
+
+  const handleTabChange = (value: string) => {
+    if (value === 'enrolled') {
+      fetchEnrolledCourses();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -110,13 +131,17 @@ const Courses = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="explore" className="w-full">
+        <Tabs defaultValue="explore" onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="enrolled">Enrolled Courses</TabsTrigger>
             <TabsTrigger value="explore">Explore Courses</TabsTrigger>
           </TabsList>
           <TabsContent value="enrolled">
-            {enrolledCourses.length > 0 ? (
+            {isEnrolledLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              </div>
+            ) : enrolledCourses.length > 0 ? (
               <div className="grid gap-6 mt-6 md:grid-cols-2 lg:grid-cols-3">
                 {enrolledCourses.map((course) => (
                   <Card key={course.id} className="overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-xl">
