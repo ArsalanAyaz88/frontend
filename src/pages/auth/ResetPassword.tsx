@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,20 @@ const ResetPassword = () => {
   const [pin, setPin] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.email) {
+      setEmail(location.state.email);
+    } else {
+      toast({
+        title: "Invalid Access",
+        description: "Please go through the forgot password process first.",
+        variant: "destructive",
+      });
+      navigate('/forgot-password');
+    }
+  }, [location, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +57,7 @@ const ResetPassword = () => {
       return;
     }
     try {
-      const response = await fetch('https://student-portal-lms-red.vercel.app/api/auth/reset-password', {
+      const response = await fetch('https://student-portal-lms-seven.vercel.app/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, pin, new_password: password }),
@@ -86,7 +100,30 @@ const ResetPassword = () => {
         </div>
 
         <Card className="glass-card p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                readOnly
+                className="mt-1 bg-muted/50"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="pin">Reset PIN</Label>
+              <Input
+                id="pin"
+                type="text"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="Enter the 6-digit PIN"
+                maxLength={6}
+                className="mt-1"
+              />
+            </div>
             <div>
               <Label htmlFor="password">New Password</Label>
               <div className="relative mt-1">
