@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +24,7 @@ const ForgotPassword = () => {
       return;
     }
     try {
-      const response = await fetch('https://student-portal-lms-red.vercel.app/api/auth/forgot-password', {
+      const response = await fetch('https://student-portal-lms-seven.vercel.app/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -31,10 +32,10 @@ const ForgotPassword = () => {
       const data = await response.json();
       if (response.ok) {
         toast({
-          title: "Reset Link Sent!",
-          description: data.message || "Check your email for password reset instructions.",
+          title: "PIN Sent Successfully!",
+          description: data.message || "Check your email for the reset PIN.",
         });
-        setIsSubmitted(true);
+        navigate('/reset-password', { state: { email } });
       } else {
         toast({
           title: "Error",
