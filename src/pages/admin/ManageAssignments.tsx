@@ -263,7 +263,7 @@ const ManageAssignments = () => {
       setLoading(prev => ({ ...prev, submissions: true }));
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${assignment.course_id}/assignments/${assignment.id}/submissions/students`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${assignment.course_id}/assignments/${assignment.id}/submissions/students`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
