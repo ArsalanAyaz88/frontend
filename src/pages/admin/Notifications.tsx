@@ -5,7 +5,8 @@ import { fetchWithAuth, handleApiResponse } from '@/lib/api';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bell, AlertCircle, Loader2, ExternalLink, Trash2 } from 'lucide-react';
+import { Bell, AlertCircle, Loader2, ExternalLink, Trash2, CheckCircle2, XCircle, CreditCard, Copy, Check } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Notification {
   id: string;
@@ -13,46 +14,37 @@ interface Notification {
   event_type: string;
   details: string;
   timestamp: string;
+  course_id: string | null;
 }
 
-// Helper function to parse notification details
-const parseDetails = (details: string) => {
-  if (typeof details !== 'string') {
-    return { course: 'N/A', user: 'N/A', email: 'N/A', proofUrl: '#', userId: null, courseId: null };
+// Helper to get icon and color based on event type
+const getNotificationStyle = (eventType: string) => {
+  switch (eventType) {
+    case 'enrollment_approved':
+      return {
+        Icon: CheckCircle2,
+        color: 'text-green-500',
+        borderColor: 'border-l-green-500',
+      };
+    case 'enrollment_expired':
+      return {
+        Icon: XCircle,
+        color: 'text-red-500',
+        borderColor: 'border-l-red-500',
+      };
+    case 'payment_proof':
+      return {
+        Icon: CreditCard,
+        color: 'text-blue-500',
+        borderColor: 'border-l-blue-500',
+      };
+    default:
+      return {
+        Icon: Bell,
+        color: 'text-muted-foreground',
+        borderColor: 'border-l-gray-500',
+      };
   }
-  const lines = details.split('\n');
-  
-  const courseLine = lines[0] || '';
-  const userLine = lines[1] || '';
-  const emailLine = lines[2] || '';
-  const proofLine = lines[3] || '';
-
-  // Improved regex to handle course with or without an ID
-  let courseMatch = courseLine.match(/course (.*) \(ID: (.*?)\)/);
-  let courseName, courseId;
-
-  if (courseMatch) {
-      courseName = courseMatch[1].trim();
-      courseId = courseMatch[2].trim();
-  } else {
-      // Fallback to matching just the name if ID is not present
-      courseMatch = courseLine.match(/course (.*)\./);
-      courseName = courseMatch ? courseMatch[1].trim() : 'N/A';
-      courseId = null; // No ID found
-  }
-
-  const userMatch = userLine.match(/User: (.*) \(ID: (.*?)\)/);
-  const emailMatch = emailLine.match(/Email: (.*)/);
-  const proofMatch = proofLine.match(/Proof image: (.*)/);
-
-  return {
-    course: courseName,
-    courseId: courseId,
-    user: userMatch ? userMatch[1].trim() : 'N/A',
-    userId: userMatch ? userMatch[2].trim() : null,
-    email: emailMatch ? emailMatch[1].trim() : 'N/A',
-    proofUrl: proofMatch ? proofMatch[1].trim() : '#',
-  };
 };
 
 const AdminNotifications = () => {
@@ -65,7 +57,12 @@ const AdminNotifications = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchWithAuth('/api/admin/notifications');
+        const token = localStorage.getItem('admin_access_token');
+        const response = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/notifications', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         const data = await handleApiResponse(response);
         setNotifications(data);
       } catch (error: any) {
@@ -82,6 +79,11 @@ const AdminNotifications = () => {
   const handleMarkAsRead = (id: string) => {
     setNotifications(notifications.filter((n) => n.id !== id));
     toast.success('Notification dismissed.');
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard!`);
   };
 
   return (
@@ -121,38 +123,105 @@ const AdminNotifications = () => {
         {!loading && !error && notifications.length > 0 && (
           <div className="space-y-4">
             {notifications.map((notification) => {
-              const { course, user, email, proofUrl, userId, courseId } = parseDetails(notification.details);
+              const { Icon, color, borderColor } = getNotificationStyle(notification.event_type);
+              
+              const getProofUrl = () => {
+                if (notification.event_type === 'payment_proof') {
+                  const match = notification.details.match(/Proof image: (https?:\/\/[^\s]+)/);
+                  return match ? match[1] : null;
+                }
+                return null;
+              };
+              const proofUrl = getProofUrl();
+
               return (
-                <Card key={notification.id} className="shadow-md hover:shadow-lg transition-shadow bg-card/80 backdrop-blur-sm">
+                <Card key={notification.id} className={`shadow-md hover:shadow-lg transition-shadow bg-card/80 backdrop-blur-sm border-l-4 ${borderColor}`}>
                   <CardHeader>
                     <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="capitalize text-lg font-semibold">{notification.event_type.replace('_', ' ')}</CardTitle>
-                        <CardDescription>{new Date(notification.timestamp).toLocaleString()}</CardDescription>
+                      <div className="flex items-center gap-3">
+                        <Icon className={`h-6 w-6 ${color}`} />
+                        <div>
+                          <CardTitle className="capitalize text-lg font-semibold">{notification.event_type.replace(/_/g, ' ')}</CardTitle>
+                          <CardDescription>{new Date(notification.timestamp).toLocaleString()}</CardDescription>
+                        </div>
                       </div>
                       <Button variant="ghost" size="icon" onClick={() => handleMarkAsRead(notification.id)} className="text-muted-foreground hover:text-primary">
                         <Trash2 className="h-5 w-5" />
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <p><strong>Course:</strong> <span className="font-medium text-primary">{course}</span></p>
-                    <p><strong>User:</strong> {user}</p>
-                    <p><strong>Email:</strong> {email}</p>
+                  <CardContent className="space-y-3 text-sm pl-12">
+                    <div>
+                      <p className="text-muted-foreground whitespace-pre-wrap">{notification.details}</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
+                      <div className="bg-muted/50 p-3 rounded-md">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs font-medium text-muted-foreground">User ID</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6"
+                                  onClick={() => copyToClipboard(notification.user_id, 'User ID')}
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Copy User ID</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <p className="font-mono text-sm break-all">{notification.user_id}</p>
+                      </div>
+                      {notification.course_id && (
+                        <div className="bg-muted/50 p-3 rounded-md">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-medium text-muted-foreground">Course ID</span>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6"
+                                    onClick={() => copyToClipboard(notification.course_id!, 'Course ID')}
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Copy Course ID</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          <p className="font-mono text-sm break-all">{notification.course_id}</p>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
-                  <CardFooter className="flex justify-between items-center bg-muted/50 p-4">
-                    <a
-                      href={proofUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline inline-flex items-center font-medium"
-                    >
-                      View Payment Proof <ExternalLink className="ml-1.5 h-4 w-4" />
-                    </a>
-                    {userId && courseId && notification.event_type === 'new_enrollment' && (
+                  <CardFooter className="flex justify-between items-center bg-muted/50 p-3 pl-12">
+                    <div>
+                      {proofUrl && (
+                        <a
+                          href={proofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline inline-flex items-center font-medium"
+                        >
+                          View Payment Proof <ExternalLink className="ml-1.5 h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                    {notification.event_type === 'payment_proof' && notification.user_id && notification.course_id && (
                         <Button asChild size="sm">
-                            <Link to={`/admin/enrollments?userId=${userId}&courseId=${courseId}`}>
-                                Approve
+                            <Link to={`/admin/enrollments?userId=${notification.user_id}&courseId=${notification.course_id}`}>
+                                Approve Enrollment
                             </Link>
                         </Button>
                     )}

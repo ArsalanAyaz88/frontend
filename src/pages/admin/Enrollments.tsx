@@ -41,9 +41,15 @@ const AdminEnrollments = () => {
     }
     setLoadingApprove(true);
     try {
+      const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `/api/admin/enrollments/approve?user_id=${approveUserId}&course_id=${approveCourseId}&duration_months=${durationMonths}`,
-        { method: 'POST' }
+        `https://student-portal-lms-seven.vercel.app/api/admin/enrollments/approve?user_id=${approveUserId}&course_id=${approveCourseId}&duration_months=${durationMonths}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
       );
       const result = await handleApiResponse(response);
       toast.success(result.detail || 'Enrollment approved successfully!');
@@ -64,9 +70,15 @@ const AdminEnrollments = () => {
     }
     setLoadingTest(true);
     try {
+      const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `/api/admin/enrollments/test-expiration?user_id=${testUserId}&course_id=${testCourseId}`,
-        { method: 'POST' }
+        `https://student-portal-lms-seven.vercel.app/api/admin/enrollments/test-expiration?user_id=${testUserId}&course_id=${testCourseId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
       );
       const result = await handleApiResponse(response);
       toast.info(result.detail || 'Expiration test completed.');

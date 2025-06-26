@@ -22,8 +22,14 @@ const AdminDashboard = () => {
       setLoading(true);
       setError(null);
       try {
+        const token = localStorage.getItem('admin_access_token');
         const response = await fetchWithAuth(
-          "https://student-portal-lms-red.vercel.app/api/admin/dashboard/stats"
+          "https://student-portal-lms-seven.vercel.app/api/admin/dashboard/stats",
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
         );
         const data = await handleApiResponse(response);
         setStats(data);
@@ -35,6 +41,10 @@ const AdminDashboard = () => {
     };
     fetchStats();
   }, []);
+
+  if (stats) {
+    console.log('Dashboard Stats:', stats);
+  }
 
   return (
     <DashboardLayout userType="admin">
@@ -86,7 +96,9 @@ const AdminDashboard = () => {
             </div>
             <div className="bg-white rounded-lg shadow p-6 md:col-span-2 lg:col-span-3">
               <div className="text-gray-600 text-sm">Last Updated</div>
-              <div className="text-lg">{new Date(stats.last_updated).toLocaleString()}</div>
+              <div className="text-lg">
+                {stats.last_updated || 'N/A'}
+              </div>
             </div>
           </div>
         )}

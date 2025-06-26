@@ -10,6 +10,7 @@ const API_BASE_URL = ((import.meta as any).env.VITE_API_URL || '').replace(/\/$/
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const headers = new Headers(options.headers);
+  const newOptions: RequestInit = { ...options, headers };
 
   // Get the user session from localStorage to retrieve the auth token
   const userSessionString = localStorage.getItem('user');
@@ -23,12 +24,9 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
 
   // Do NOT set Authorization header from localStorage
 
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
 
-
-  const fullUrl = `${API_BASE_URL}${url}`;
-
-  // Always include credentials (cookies) for authentication
-  const response = await fetch(fullUrl, { ...options, headers, credentials: 'include' });
+  const response = await fetch(fullUrl, newOptions);
 
   if (response.status === 401) {
     throw new UnauthorizedError();

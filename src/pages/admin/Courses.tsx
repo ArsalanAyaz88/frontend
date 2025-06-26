@@ -109,7 +109,12 @@ const AdminCourses = () => {
   const fetchCourses = async () => {
     setLoading(true);
     try {
-      const response = await fetchWithAuth('/api/admin/courses?skip=0&limit=100');
+            const token = localStorage.getItem('admin_access_token');
+      const response = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/courses?skip=0&limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await handleApiResponse(response);
       setCourses(data);
     } catch (error) {
@@ -125,7 +130,12 @@ const AdminCourses = () => {
 
   const handleEdit = async (courseId: string) => {
     try {
-        const response = await fetchWithAuth(`/api/admin/courses/${courseId}`);
+                const token = localStorage.getItem('admin_access_token');
+        const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+        });
         const courseDetails = await handleApiResponse(response);
         form.reset({
             title: courseDetails.title,
@@ -150,7 +160,13 @@ const AdminCourses = () => {
     console.log(`Attempting to delete course with ID: ${courseToDelete}`);
     try {
       console.log('Before fetchWithAuth');
-      const response = await fetchWithAuth(`/api/admin/courses/${courseToDelete}`, { method: 'DELETE' });
+            const token = localStorage.getItem('admin_access_token');
+      const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       console.log('After fetchWithAuth, response:', response);
       await handleApiResponse(response);
       console.log('After handleApiResponse');
@@ -167,8 +183,9 @@ const AdminCourses = () => {
   };
 
   const onSubmit = async (data: CourseFormData) => {
-    const url = selectedCourse ? `/api/admin/courses/${selectedCourse.id}` : '/api/admin/courses';
+    const url = selectedCourse ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse.id}` : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
     const method = selectedCourse ? 'PUT' : 'POST';
+    const token = localStorage.getItem('admin_access_token');
 
     try {
       let response;
@@ -178,6 +195,7 @@ const AdminCourses = () => {
           method,
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify(data),
         });
@@ -191,6 +209,9 @@ const AdminCourses = () => {
         }
         response = await fetchWithAuth(url, {
           method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
           body: formData,
         });
       }
