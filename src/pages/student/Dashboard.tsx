@@ -106,7 +106,7 @@ const Dashboard = () => {
       setIsLoadingAnalytics(true);
       setAnalytics(null);
       try {
-        const response = await fetchWithAuth(`/api/courses/${selectedCourseId}/analytics`);
+        const response = await fetchWithAuth(`/api/student/dashboard/courses/${selectedCourseId}/analytics`);
         const data = await response.json();
         // Mocking some data if the response is empty, as per user's example
         setAnalytics(data.detail ? createMockAnalytics(selectedCourseId) : data);
@@ -127,7 +127,7 @@ const Dashboard = () => {
     }
     setIsFeedbackSubmitting(true);
     try {
-      await fetchWithAuth(`/api/courses/${selectedCourseId}/analytics/feedback`, {
+      await fetchWithAuth(`/api/student/dashboard/courses/${selectedCourseId}/analytics/feedback`, {
         method: 'POST',
         body: JSON.stringify({ feedback: feedback, improvement_suggestions: improvement })
       });

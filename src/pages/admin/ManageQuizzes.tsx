@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchWithAuth, handleApiResponse } from '@/lib/api';
 import { toast } from 'sonner';
-import { Plus, MoreVertical, Edit, Trash2, Eye, Loader2 } from 'lucide-react';
+import { Plus, MoreVertical, Edit, Trash2, Loader2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   Table,
@@ -32,10 +32,22 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Course {
   id: string;
   title: string;
+}
+
+interface Option {
+  text: string;
+  is_correct: boolean;
+}
+
+interface Question {
+  text: string;
+  is_multiple_choice: boolean;
+  options: Option[];
 }
 
 interface Quiz {
@@ -45,6 +57,7 @@ interface Quiz {
   description: string;
   time_limit: number; // in minutes
   due_date: string;
+  questions?: Question[];
 }
 
 const ManageQuizzes = () => {
@@ -61,6 +74,7 @@ const ManageQuizzes = () => {
   const [quizDesc, setQuizDesc] = useState('');
   const [timeLimit, setTimeLimit] = useState('30');
   const [dueDate, setDueDate] = useState('');
+  const [questions, setQuestions] = useState<Question[]>([]);
 
   // Fetch Courses
   const fetchCourses = useCallback(async () => {
@@ -110,31 +124,59 @@ const ManageQuizzes = () => {
 
   // Handle Save Quiz
   const handleSaveQuiz = async () => {
-    if (!quizTitle || !quizDesc || !timeLimit || !dueDate) {
-      toast.error('Please fill all fields.');
+    if (!quizTitle || !quizDesc || !timeLimit || !dueDate || !selectedCourse) {
+      toast.error('Please fill all quiz details and select a course.');
       return;
     }
-    
+
+    if (questions.length === 0) {
+      toast.error('Please add at least one question to the quiz.');
+      return;
+    }
+
+    for (const question of questions) {
+      if (!question.text.trim()) {
+        toast.error('All questions must have text.');
+        return;
+      }
+      if (question.options.length < 2) {
+        toast.error(`Question "${question.text}" must have at least two options.`);
+        return;
+      }
+      if (!question.options.some(opt => opt.is_correct)) {
+        toast.error(`A correct answer must be selected for question "${question.text}".`);
+        return;
+      }
+      if (question.options.some(opt => !opt.text.trim())) {
+        toast.error(`All options for question "${question.text}" must have text.`);
+        return;
+      }
+    }
+
     const body = {
       title: quizTitle,
       description: quizDesc,
-      time_limit: parseInt(timeLimit),
+      time_limit: parseInt(timeLimit, 10),
       due_date: new Date(dueDate).toISOString(),
-      course_id: selectedCourse
+      questions: questions.map(q => ({
+        text: q.text,
+        is_multiple_choice: q.is_multiple_choice,
+        options: q.options.map(o => ({
+          text: o.text,
+          is_correct: o.is_correct,
+        })),
+      })),
     };
 
     const baseUrl = 'https://student-portal-lms-seven.vercel.app/api';
     const endpoint = editingQuiz
       ? `/admin/courses/${selectedCourse}/quizzes/${editingQuiz.id}`
       : `/admin/courses/${selectedCourse}/quizzes`;
-      
+
     const method = editingQuiz ? 'PUT' : 'POST';
     const token = localStorage.getItem('admin_access_token');
 
     try {
-      console.log('Sending request to:', `${baseUrl}${endpoint}`);
-      console.log('Request body:', body);
-      
       const response = await fetchWithAuth(`${baseUrl}${endpoint}`, {
         method,
         headers: {
@@ -143,57 +185,116 @@ const ManageQuizzes = () => {
         },
         body: JSON.stringify(body)
       });
-      
+
       await handleApiResponse(response);
+
       toast.success(`Quiz ${editingQuiz ? 'updated' : 'created'} successfully!`);
       setIsQuizModalOpen(false);
       fetchQuizzes();
     } catch (error: any) {
-      console.error('Error saving quiz:', error);
       toast.error(error.message || `Failed to ${editingQuiz ? 'update' : 'create'} quiz.`);
     }
   };
 
   // Handle Delete Quiz
   const handleDeleteQuiz = async (quizId: string) => {
-    if (!window.confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) return;
+    if (!selectedCourse || !window.confirm('Are you sure you want to delete this quiz?')) return;
+
     try {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
         `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse}/quizzes/${quizId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+        { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }
       );
       await handleApiResponse(response);
       toast.success('Quiz deleted successfully!');
       fetchQuizzes();
-    } catch (error) {
-      toast.error('Failed to delete quiz.');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete quiz.');
     }
   };
 
-  // Open Edit Modal
+  // --- Modal and Question Handlers ---
   const openEditModal = (quiz: Quiz) => {
     setEditingQuiz(quiz);
     setQuizTitle(quiz.title);
-    setQuizDesc(quiz.description);
-    setTimeLimit(quiz.time_limit.toString());
-    setDueDate(quiz.due_date);
+    setQuizDesc(quiz.description || '');
+    setTimeLimit(String(quiz.time_limit || 30));
+    setDueDate(quiz.due_date ? format(new Date(quiz.due_date), "yyyy-MM-dd'T'HH:mm") : '');
+    setQuestions(quiz.questions || []);
     setIsQuizModalOpen(true);
   };
 
-  // Open Create Modal
   const openCreateModal = () => {
     setEditingQuiz(null);
     setQuizTitle('');
     setQuizDesc('');
     setTimeLimit('30');
     setDueDate('');
+    setQuestions([]);
     setIsQuizModalOpen(true);
+  };
+
+  const addQuestion = () => {
+    setQuestions([...questions, { text: '', is_multiple_choice: false, options: [{ text: '', is_correct: true }, { text: '', is_correct: false }] }]);
+  };
+
+  const removeQuestion = (qIndex: number) => {
+    setQuestions(questions.filter((_, i) => i !== qIndex));
+  };
+
+  const handleQuestionChange = (qIndex: number, value: string) => {
+    const newQuestions = [...questions];
+    newQuestions[qIndex].text = value;
+    setQuestions(newQuestions);
+  };
+
+  const handleMultipleChoiceChange = (qIndex: number, isChecked: boolean) => {
+    const newQuestions = [...questions];
+    const question = newQuestions[qIndex];
+    question.is_multiple_choice = isChecked;
+    if (!isChecked) {
+      let firstCorrectFound = false;
+      question.options.forEach(opt => {
+        if (opt.is_correct) {
+          if (firstCorrectFound) opt.is_correct = false;
+          firstCorrectFound = true;
+        }
+      });
+      if (!firstCorrectFound && question.options.length > 0) {
+        question.options[0].is_correct = true;
+      }
+    }
+    setQuestions(newQuestions);
+  };
+
+  const addOption = (qIndex: number) => {
+    const newQuestions = [...questions];
+    newQuestions[qIndex].options.push({ text: '', is_correct: false });
+    setQuestions(newQuestions);
+  };
+
+  const removeOption = (qIndex: number, oIndex: number) => {
+    const newQuestions = [...questions];
+    newQuestions[qIndex].options = newQuestions[qIndex].options.filter((_, i) => i !== oIndex);
+    setQuestions(newQuestions);
+  };
+
+  const handleOptionTextChange = (qIndex: number, oIndex: number, value: string) => {
+    const newQuestions = [...questions];
+    newQuestions[qIndex].options[oIndex].text = value;
+    setQuestions(newQuestions);
+  };
+
+  const handleCorrectOptionChange = (qIndex: number, oIndex: number) => {
+    const newQuestions = [...questions];
+    const question = newQuestions[qIndex];
+    if (question.is_multiple_choice) {
+      question.options[oIndex].is_correct = !question.options[oIndex].is_correct;
+    } else {
+      question.options.forEach((option, i) => { option.is_correct = i === oIndex; });
+    }
+    setQuestions(newQuestions);
   };
 
   // Fetch data on component mount and when selected course changes
@@ -296,54 +397,89 @@ const ManageQuizzes = () => {
 
       {/* Quiz Modal */}
       <Dialog open={isQuizModalOpen} onOpenChange={setIsQuizModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingQuiz ? 'Edit Quiz' : 'Create New Quiz'}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="quizTitle" className="text-right">Title</Label>
-              <Input 
-                id="quizTitle"
-                value={quizTitle}
-                onChange={(e) => setQuizTitle(e.target.value)}
-                className="col-span-3"
-                placeholder="Enter quiz title"
-              />
+          <div className="grid gap-6 py-4">
+            {/* Quiz Details */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-lg">Quiz Details</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="quizTitle">Title</Label>
+                  <Input id="quizTitle" value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="Enter quiz title" />
+                </div>
+                <div>
+                  <Label htmlFor="timeLimit">Time Limit (minutes)</Label>
+                  <Input id="timeLimit" type="number" min="1" value={timeLimit} onChange={(e) => setTimeLimit(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="quizDesc">Description</Label>
+                <Textarea id="quizDesc" value={quizDesc} onChange={(e) => setQuizDesc(e.target.value)} placeholder="Enter quiz description" rows={3} />
+              </div>
+              <div>
+                <Label htmlFor="dueDate">Due Date</Label>
+                <Input id="dueDate" type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="quizDesc" className="text-right mt-2">Description</Label>
-              <Textarea
-                id="quizDesc"
-                value={quizDesc}
-                onChange={(e) => setQuizDesc(e.target.value)}
-                className="col-span-3"
-                placeholder="Enter quiz description"
-                rows={4}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="timeLimit" className="text-right">Time Limit (minutes)</Label>
-              <Input
-                id="timeLimit"
-                type="number"
-                min="1"
-                value={timeLimit}
-                onChange={(e) => setTimeLimit(e.target.value)}
-                className="col-span-1"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="dueDate" className="text-right">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="datetime-local"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="col-span-3"
-              />
+
+            {/* Questions Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="font-semibold text-lg">Questions</h4>
+                <Button size="sm" onClick={addQuestion}><Plus className="mr-2 h-4 w-4" /> Add Question</Button>
+              </div>
+              <div className="space-y-6">
+                {questions.map((q, qIndex) => (
+                  <div key={qIndex} className="p-4 border rounded-lg space-y-4">
+                    <div className="flex justify-between items-center">
+                      <Label>Question {qIndex + 1}</Label>
+                      <Button variant="ghost" size="icon" onClick={() => removeQuestion(qIndex)}><X className="h-4 w-4" /></Button>
+                    </div>
+                    <Textarea
+                      value={q.text}
+                      onChange={(e) => handleQuestionChange(qIndex, e.target.value)}
+                      placeholder={`Enter text for question ${qIndex + 1}`}
+                    />
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`mc-${qIndex}`}
+                        checked={q.is_multiple_choice}
+                        onCheckedChange={(checked) => handleMultipleChoiceChange(qIndex, !!checked)}
+                      />
+                      <Label htmlFor={`mc-${qIndex}`}>Allow multiple correct answers</Label>
+                    </div>
+
+                    {/* Options Section */}
+                    <div className="space-y-2 pl-4">
+                      <Label>Options</Label>
+                      {q.options.map((opt, oIndex) => (
+                        <div key={oIndex} className="flex items-center gap-2">
+                          <Checkbox
+                            checked={opt.is_correct}
+                            onCheckedChange={() => handleCorrectOptionChange(qIndex, oIndex)}
+                          />
+                          <Input
+                            value={opt.text}
+                            onChange={(e) => handleOptionTextChange(qIndex, oIndex, e.target.value)}
+                            placeholder={`Option ${oIndex + 1}`}
+                            className="flex-grow"
+                          />
+                          <Button variant="ghost" size="icon" onClick={() => removeOption(qIndex, oIndex)} disabled={q.options.length <= 2}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button size="sm" variant="outline" onClick={() => addOption(qIndex)}><Plus className="mr-2 h-4 w-4" /> Add Option</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>

@@ -40,7 +40,7 @@ const AdminEnrollments = () => {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
         `https://student-portal-lms-seven.vercel.app/api/admin/enrollments/approve?user_id=${approveUserId}&course_id=${approveCourseId}&duration_months=${durationMonths}`,
-        { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }
+        { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } }
       );
       const result = await handleApiResponse(response);
       toast.success(result.detail || 'Enrollment approved successfully!');
