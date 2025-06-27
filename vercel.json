@@ -11,7 +11,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://lms-backend-im91.onrender.com/api/$1" },
+    { "source": "/api/profile", "destination": "https://student-portal-lms-seven.vercel.app/api/profile" },
+    { "source": "/api/courses/(.*)", "destination": "https://student-portal-lms-seven.vercel.app/api/courses/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

@@ -46,7 +46,7 @@ const Courses = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetchWithAuth('/api/explore-courses');
+        const res = await fetchWithAuth('/api/courses/explore-courses');
         const data = await res.json();
         setExploreCourses(data);
       } catch (err: any) {

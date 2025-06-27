@@ -26,7 +26,7 @@ const CoursesSection = () => {
     const fetchCourses = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch('/api/explore-courses');
+        const response = await fetch('/api/courses/explore-courses');
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch courses' }));
           throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
