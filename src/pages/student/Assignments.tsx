@@ -96,7 +96,7 @@ const Assignments = () => {
       <div>
         <div className="flex justify-between items-center mb-2">
             <p className="text-sm text-muted-foreground">{assignment.course_title}</p>
-            <Badge variant={assignment.status === 'graded' ? 'default' : 'secondary'}>{assignment.status.toUpperCase()}</Badge>
+            <Badge variant={assignment.status === 'graded' ? 'default' : 'secondary'}>{assignment.status?.toUpperCase()}</Badge>
         </div>
         <h3 className="text-lg font-semibold mb-2">{assignment.title}</h3>
         <p className="text-sm mb-4 line-clamp-3">{assignment.description}</p>
@@ -104,7 +104,7 @@ const Assignments = () => {
       <div>
         <div className="flex items-center text-sm text-muted-foreground mb-4">
           <Calendar className="h-4 w-4 mr-2" />
-          <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
+          <span>Due: {new Date(assignment.due_date)?.toLocaleDateString()}</span>
         </div>
         <Link to={`/student/assignments/${assignment.course_id}/${assignment.id}`}>
           <Button className="w-full">

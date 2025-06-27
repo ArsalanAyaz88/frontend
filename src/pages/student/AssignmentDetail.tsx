@@ -133,11 +133,11 @@ const AssignmentDetailPage = () => {
                 <CardTitle className="text-3xl font-bold">{assignment.title}</CardTitle>
                 <p className="text-muted-foreground">{assignment.course_title}</p>
               </div>
-              <Badge variant={assignment.status === 'graded' ? 'default' : 'secondary'}>{assignment.status.toUpperCase()}</Badge>
+              <Badge variant={assignment.status === 'graded' ? 'default' : 'secondary'}>{assignment.status?.toUpperCase()}</Badge>
             </div>
             <div className="flex items-center text-sm text-muted-foreground mt-2">
               <Calendar className="h-4 w-4 mr-2" />
-              <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
+              <span>Due: {new Date(assignment.due_date)?.toLocaleDateString()}</span>
             </div>
           </CardHeader>
           <CardContent>
