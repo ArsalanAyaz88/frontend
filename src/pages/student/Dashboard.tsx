@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from "@/components/ui/progress";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2, MessageSquare, Download } from "lucide-react";
 import { fetchWithAuth, UnauthorizedError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -50,6 +50,7 @@ const Dashboard = () => {
   const [improvement, setImprovement] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+  const [isCertificateLoading, setIsCertificateLoading] = useState(false);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -128,6 +129,31 @@ const Dashboard = () => {
     setIsLoadingAnalytics(false);
   };
 
+  const handleGetCertificate = async (courseId: string) => {
+    if (!analytics) return;
+    setIsCertificateLoading(true);
+    try {
+      const response = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate`);
+      if (!response.ok) {
+        throw new Error('Failed to download certificate. Please try again later.');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${analytics.course.title}-certificate.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Success", description: "Certificate download started." });
+    } catch (err) {
+      console.error("Failed to get certificate", err);
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    }
+    setIsCertificateLoading(false);
+  };
+
   const handleFeedbackSubmit = async () => {
     if (!selectedCourseId || !feedback) {
       toast({ title: "Feedback Required", description: "Please provide some feedback before submitting.", variant: "destructive" });
@@ -189,7 +215,12 @@ const Dashboard = () => {
             {isLoadingAnalytics ? (
               <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
             ) : analytics ? (
-              <AnalyticsDisplay analytics={analytics} onFeedbackClick={() => setIsFeedbackDialogOpen(true)} />
+              <AnalyticsDisplay 
+                analytics={analytics} 
+                onFeedbackClick={() => setIsFeedbackDialogOpen(true)}
+                onGetCertificate={() => handleGetCertificate(selectedCourseId!)}
+                isCertificateLoading={isCertificateLoading}
+              />
             ) : (
               <div className="text-center h-64 flex items-center justify-center"><p className='text-muted-foreground'>Select one of your enrolled courses to view your progress and analytics.</p></div>
             )}
@@ -220,14 +251,22 @@ const Dashboard = () => {
 };
 
 // --- HELPER COMPONENTS ---
-const AnalyticsDisplay = ({ analytics, onFeedbackClick }: { analytics: AnalyticsData, onFeedbackClick: () => void }) => (
+const AnalyticsDisplay = ({ analytics, onFeedbackClick, onGetCertificate, isCertificateLoading }: { analytics: AnalyticsData, onFeedbackClick: () => void, onGetCertificate: () => void, isCertificateLoading: boolean }) => (
   <div className="space-y-6">
     <div className="flex justify-between items-start">
       <div>
         <h2 className="text-2xl font-bold text-primary">{analytics.course.title}</h2>
         <p className="text-muted-foreground mt-1">{analytics.course.description}</p>
       </div>
-      <Button onClick={onFeedbackClick}><MessageSquare className="mr-2 h-4 w-4" /> Provide Feedback</Button>
+      <div className="flex items-center gap-2">
+        {analytics.progress === 100 && (
+          <Button onClick={onGetCertificate} disabled={isCertificateLoading}>
+            {isCertificateLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} 
+            Get Certificate
+          </Button>
+        )}
+        <Button onClick={onFeedbackClick}><MessageSquare className="mr-2 h-4 w-4" /> Provide Feedback</Button>
+      </div>
     </div>
 
     <div>
