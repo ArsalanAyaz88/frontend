@@ -39,7 +39,7 @@ const QuizResult = () => {
       if (!courseId || !quizId || !submissionId) return;
       setLoading(true);
       try {
-        const res = await fetchWithAuth(`/api/courses/${courseId}/quizzes/${quizId}/submissions/${submissionId}`);
+        const res = await fetchWithAuth(`/api/student/quizzes/courses/${courseId}/quizzes/${quizId}/results/${submissionId}`);
         const data = await handleApiResponse(res);
         setResult(data);
       } catch (err: any) {

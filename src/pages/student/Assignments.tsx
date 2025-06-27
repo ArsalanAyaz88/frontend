@@ -43,7 +43,7 @@ const Assignments = () => {
 
         const assignmentsPromises = enrolledCourses.map(async (course: any) => {
           try {
-            const assignmentsRes = await fetchWithAuth(`/api/courses/${course.id}/assignments`);
+            const assignmentsRes = await fetchWithAuth(`/api/student/assignments/courses/${course.id}/assignments`);
             const courseAssignments = await handleApiResponse(assignmentsRes);
             return courseAssignments.map((assignment: any) => ({
               ...assignment,

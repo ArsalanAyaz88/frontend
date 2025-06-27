@@ -52,7 +52,7 @@ const AssignmentDetailPage = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetchWithAuth(`/api/courses/${courseId}/assignments/${assignmentId}`);
+        const res = await fetchWithAuth(`/api/student/assignments/courses/${courseId}/assignments/${assignmentId}`);
         const data = await handleApiResponse(res);
         setAssignment(data);
       } catch (err: any) {
@@ -86,7 +86,7 @@ const AssignmentDetailPage = () => {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const res = await fetchWithAuth(`/api/courses/${courseId}/assignments/${assignmentId}/submissions`, {
+      const res = await fetchWithAuth(`/api/student/assignments/courses/${courseId}/assignments/${assignmentId}/submissions`, {
         method: 'POST',
         body: formData,
       });
@@ -94,7 +94,7 @@ const AssignmentDetailPage = () => {
       const data = await handleApiResponse(res);
       toast({ title: "Success", description: data.detail || "Assignment submitted successfully." });
       
-      const refreshRes = await fetchWithAuth(`/api/courses/${courseId}/assignments/${assignmentId}`);
+      const refreshRes = await fetchWithAuth(`/api/student/assignments/courses/${courseId}/assignments/${assignmentId}`);
       const refreshedData = await handleApiResponse(refreshRes);
       setAssignment(refreshedData);
 
