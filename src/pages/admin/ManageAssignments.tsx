@@ -173,7 +173,7 @@ const ManageAssignments = () => {
     const baseUrl = 'https://student-portal-lms-seven.vercel.app/api';
     const endpoint = editingAssignment
       ? `/admin/courses/${selectedCourse}/assignments/${editingAssignment.id}`
-      : `/admin/courses/${selectedCourse}/assignments`;
+      : `/admin/admin/courses/${selectedCourse}/assignments`;
       
     const method = editingAssignment ? 'PUT' : 'POST';
     const token = localStorage.getItem('admin_access_token');
