@@ -61,7 +61,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchUserName = async () => {
         try {
-            const response = await fetchWithAuth('/api/profile');
+            const response = await fetchWithAuth('/api/profile/profile');
             if (!response.ok) return; // Don't bother if it fails
             const data = await response.json();
             if (data.full_name) {

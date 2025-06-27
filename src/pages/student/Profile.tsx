@@ -33,7 +33,7 @@ const Profile = () => {
   const fetchProfile = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetchWithAuth('/api/profile');
+      const response = await fetchWithAuth('/api/profile/profile');
       const data = await response.json();
       
       const userSession = JSON.parse(localStorage.getItem('user') || '{}');
