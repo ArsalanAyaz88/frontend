@@ -56,7 +56,10 @@ const Dashboard = () => {
 
   const [userName, setUserName] = useState(() => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.full_name || 'Student';
+    if (user.full_name && user.full_name.toLowerCase() !== 'string') {
+      return user.full_name;
+    }
+    return 'Student';
   });
 
   useEffect(() => {
@@ -65,11 +68,17 @@ const Dashboard = () => {
             const response = await fetchWithAuth('/api/profile/profile');
             if (!response.ok) return;
             const data = await response.json();
-            if (data.full_name) {
+            if (data.full_name && data.full_name.toLowerCase() !== 'string') {
                 setUserName(data.full_name);
                 const userSession = JSON.parse(localStorage.getItem('user') || '{}');
                 userSession.full_name = data.full_name;
                 localStorage.setItem('user', JSON.stringify(userSession));
+            } else {
+                const userSession = JSON.parse(localStorage.getItem('user') || '{}');
+                if (userSession.full_name && userSession.full_name.toLowerCase() === 'string') {
+                    delete userSession.full_name;
+                    localStorage.setItem('user', JSON.stringify(userSession));
+                }
             }
         } catch (err) {
             console.error("Could not fetch user name for dashboard:", err);
@@ -156,7 +165,7 @@ const Dashboard = () => {
                   disabled={isLoadingCourses || courses.length === 0}
                 >
                   <SelectTrigger className="w-full md:w-[300px]">
-                    <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : "Select an enrolled course"} />
+                    <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : courses.length === 0 ? "No courses found" : "Select an enrolled course"} />
                   </SelectTrigger>
                   <SelectContent>
                     {courses.map((course) => (
