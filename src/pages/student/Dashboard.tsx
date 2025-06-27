@@ -1,39 +1,41 @@
-
 import { useState, useEffect } from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Progress } from "@/components/ui/progress";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { BookOpen, Trophy, Clock, Target, Loader2, BarChart2, MessageSquare, Send } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
 import { fetchWithAuth, UnauthorizedError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
-// --- MOCK DATA & TYPES (can be replaced with real data models) ---
+// --- DATA TYPES ---
 type Course = {
-  id: string;
+  course_id: string;
   title: string;
 };
 
 type AnalyticsData = {
-  course_title: string;
-  overall_progress: number;
-  quizzes_completed: number;
-  total_quizzes: number;
-  average_score: number;
-  time_spent_hours: number;
-  score_over_time: { name: string; score: number }[];
-  // Add more fields as per actual API response
+  course: {
+    title: string;
+    description: string;
+  };
+  videos: {
+    total: number;
+    watched: number;
+  };
+  assignments: {
+    total: number;
+    submitted: number;
+  };
+  quizzes: {
+    total: number;
+    attempted: number;
+  };
+  progress: number;
 };
-
-
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = () => {
@@ -57,38 +59,34 @@ const Dashboard = () => {
     return user.full_name || 'Student';
   });
 
-  // Fetch user profile to get the most up-to-date name
   useEffect(() => {
     const fetchUserName = async () => {
         try {
             const response = await fetchWithAuth('/api/profile/profile');
-            if (!response.ok) return; // Don't bother if it fails
+            if (!response.ok) return;
             const data = await response.json();
             if (data.full_name) {
                 setUserName(data.full_name);
-                // Keep localStorage in sync for other parts of the app
                 const userSession = JSON.parse(localStorage.getItem('user') || '{}');
                 userSession.full_name = data.full_name;
                 localStorage.setItem('user', JSON.stringify(userSession));
             }
         } catch (err) {
-            // Silently fail, the initial state from localStorage will be used
             console.error("Could not fetch user name for dashboard:", err);
         }
     };
     fetchUserName();
   }, []);
 
-  // Fetch all available courses on mount
   useEffect(() => {
     const fetchCourses = async () => {
       setIsLoadingCourses(true);
       try {
-        const response = await fetchWithAuth('/api/courses/explore-courses');
+        const response = await fetchWithAuth('/api/my-courses');
         const data = await response.json();
-        setCourses(data || []); // The API returns an array of courses directly
+        setCourses(data.courses || []);
       } catch (err) {
-        console.error("Failed to fetch courses", err);
+        console.error("Failed to fetch enrolled courses", err);
         setError("Could not load your courses. Please try refreshing.");
         if (err instanceof UnauthorizedError) navigate('/login');
       }
@@ -97,77 +95,72 @@ const Dashboard = () => {
     fetchCourses();
   }, [navigate]);
 
-  // Fetch analytics when a course is selected
-  useEffect(() => {
-    if (!selectedCourseId) return;
-
-    const fetchAnalytics = async () => {
-      setIsLoadingAnalytics(true);
-      setAnalytics(null);
-      try {
-        const response = await fetchWithAuth(`/api/student/dashboard/courses/${selectedCourseId}/analytics`);
-        const data = await response.json();
-        // Mocking some data if the response is empty, as per user's example
-        setAnalytics(data.detail ? createMockAnalytics(selectedCourseId) : data);
-      } catch (err) {
-        console.error("Failed to fetch analytics", err);
-        toast({ title: "Error", description: "Could not load analytics for this course.", variant: "destructive" });
-        if (err instanceof UnauthorizedError) navigate('/login');
-      }
-      setIsLoadingAnalytics(false);
-    };
-    fetchAnalytics();
-  }, [selectedCourseId, navigate, toast]);
+  const fetchAnalytics = async (courseId: string) => {
+    if (!courseId) return;
+    setSelectedCourseId(courseId);
+    setIsLoadingAnalytics(true);
+    setAnalytics(null);
+    try {
+      const response = await fetchWithAuth(`/api/student/dashboard/courses/${courseId}/analytics`);
+      const data = await response.json();
+      setAnalytics(data);
+    } catch (err) {
+      console.error(`Failed to fetch analytics for course ${courseId}`, err);
+      setError("Could not load analytics for this course.");
+      if (err instanceof UnauthorizedError) navigate('/login');
+    }
+    setIsLoadingAnalytics(false);
+  };
 
   const handleFeedbackSubmit = async () => {
     if (!selectedCourseId || !feedback) {
-      toast({ title: "Missing Information", description: "Please provide your feedback before submitting.", variant: "destructive" });
+      toast({ title: "Feedback Required", description: "Please provide some feedback before submitting.", variant: "destructive" });
       return;
     }
     setIsFeedbackSubmitting(true);
     try {
-      await fetchWithAuth(`/api/student/dashboard/courses/${selectedCourseId}/analytics/feedback`, {
+      const response = await fetchWithAuth(`/api/student/dashboard/courses/${selectedCourseId}/analytics/feedback`, {
         method: 'POST',
-        body: JSON.stringify({ feedback: feedback, improvement_suggestions: improvement })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback, improvement }),
       });
-      toast({ title: "Success", description: "Your feedback has been submitted. Thank you!" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to submit feedback');
+
+      toast({ title: "Feedback Submitted", description: "Thank you for your feedback!" });
       setIsFeedbackDialogOpen(false);
       setFeedback('');
       setImprovement('');
     } catch (err) {
-      console.error("Failed to submit feedback", err);
-      toast({ title: "Error", description: "Could not submit your feedback.", variant: "destructive" });
-      if (err instanceof UnauthorizedError) navigate('/login');
+      console.error("Feedback submission failed", err);
+      toast({ title: "Submission Error", description: (err as Error).message, variant: "destructive" });
     }
     setIsFeedbackSubmitting(false);
   };
 
-
-
   return (
     <DashboardLayout userType="student">
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Welcome back, {userName}! 👋</h1>
+        <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
         
+        {error && <div className="p-4 bg-destructive/10 text-destructive border border-destructive/50 rounded-lg">{error}</div>}
 
-
-        {/* Course Analytics Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className='flex items-center'><BarChart2 className="mr-2" /> Course Analytics</div>
+            <CardTitle className="flex justify-between items-center">
+              <span>My Analytics Dashboard</span>
               <div className="w-full md:w-1/3">
                 <Select
                   value={selectedCourseId || ''}
-                  onValueChange={(id) => setSelectedCourseId(id)}
+                  onValueChange={fetchAnalytics}
                   disabled={isLoadingCourses || courses.length === 0}
                 >
                   <SelectTrigger className="w-full md:w-[300px]">
-                    <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : "Select a course"} />
+                    <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : "Select an enrolled course"} />
                   </SelectTrigger>
                   <SelectContent>
                     {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
+                      <SelectItem key={course.course_id} value={course.course_id}>
                         {course.title}
                       </SelectItem>
                     ))}
@@ -182,16 +175,15 @@ const Dashboard = () => {
             ) : analytics ? (
               <AnalyticsDisplay analytics={analytics} onFeedbackClick={() => setIsFeedbackDialogOpen(true)} />
             ) : (
-              <div className="text-center h-64 flex items-center justify-center"><p className='text-muted-foreground'>Select a course to view your progress and analytics.</p></div>
+              <div className="text-center h-64 flex items-center justify-center"><p className='text-muted-foreground'>Select one of your enrolled courses to view your progress and analytics.</p></div>
             )}
           </CardContent>
         </Card>
 
-        {/* Feedback Dialog */}
         <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Provide Feedback for {analytics?.course_title || 'this course'}</DialogTitle>
+              <DialogTitle>Provide Feedback for {analytics?.course.title || 'this course'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <Textarea placeholder="What did you like or find helpful?" value={feedback} onChange={e => setFeedback(e.target.value)} rows={4}/>
@@ -215,27 +207,25 @@ const Dashboard = () => {
 const AnalyticsDisplay = ({ analytics, onFeedbackClick }: { analytics: AnalyticsData, onFeedbackClick: () => void }) => (
   <div className="space-y-6">
     <div className="flex justify-between items-start">
-      <h2 className="text-2xl font-bold text-primary">{analytics.course_title}</h2>
+      <div>
+        <h2 className="text-2xl font-bold text-primary">{analytics.course.title}</h2>
+        <p className="text-muted-foreground mt-1">{analytics.course.description}</p>
+      </div>
       <Button onClick={onFeedbackClick}><MessageSquare className="mr-2 h-4 w-4" /> Provide Feedback</Button>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <StatCard title="Overall Progress" value={`${analytics.overall_progress}%`} />
-      <StatCard title="Quizzes Completed" value={`${analytics.quizzes_completed} / ${analytics.total_quizzes}`} />
-      <StatCard title="Average Score" value={`${analytics.average_score}%`} />
-      <StatCard title="Time Spent" value={`${analytics.time_spent_hours} hrs`} />
-    </div>
+
     <div>
-      <h3 className="text-lg font-semibold mb-4">Score Over Time</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={analytics.score_over_time}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="score" fill="#8884d8" />
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-sm font-medium">Overall Progress</span>
+        <span className="text-sm font-bold">{analytics.progress}%</span>
+      </div>
+      <Progress value={analytics.progress} className="w-full" />
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <StatCard title="Videos Watched" value={`${analytics.videos.watched} / ${analytics.videos.total}`} />
+      <StatCard title="Assignments Submitted" value={`${analytics.assignments.submitted} / ${analytics.assignments.total}`} />
+      <StatCard title="Quizzes Attempted" value={`${analytics.quizzes.attempted} / ${analytics.quizzes.total}`} />
     </div>
   </div>
 );
@@ -247,22 +237,4 @@ const StatCard = ({ title, value }: { title: string, value: string }) => (
   </Card>
 );
 
-// Helper to create mock data if API fails or returns enrollment error
-const createMockAnalytics = (courseId: string): AnalyticsData => ({
-  course_title: `Sample Course Analytics`,
-  overall_progress: 75,
-  quizzes_completed: 8,
-  total_quizzes: 10,
-  average_score: 88,
-  time_spent_hours: 42,
-  score_over_time: [
-    { name: 'Quiz 1', score: 80 },
-    { name: 'Quiz 2', score: 92 },
-    { name: 'Quiz 3', score: 85 },
-    { name: 'Midterm', score: 89 },
-    { name: 'Quiz 4', score: 95 },
-  ],
-});
-
 export default Dashboard;
-
