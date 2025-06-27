@@ -79,15 +79,14 @@ const Dashboard = () => {
     fetchUserName();
   }, []);
 
-  // Fetch enrolled courses on mount
+  // Fetch all available courses on mount
   useEffect(() => {
     const fetchCourses = async () => {
       setIsLoadingCourses(true);
       try {
-        // IMPORTANT: Replace with your actual endpoint to get enrolled courses
-        const response = await fetchWithAuth('/api/courses/my-courses'); 
+        const response = await fetchWithAuth('/api/courses/explore-courses');
         const data = await response.json();
-        setCourses(data.courses || []); // Assuming API returns { courses: [...] }
+        setCourses(data || []); // The API returns an array of courses directly
       } catch (err) {
         console.error("Failed to fetch courses", err);
         setError("Could not load your courses. Please try refreshing.");
@@ -158,16 +157,20 @@ const Dashboard = () => {
             <CardTitle className="flex items-center justify-between">
               <div className='flex items-center'><BarChart2 className="mr-2" /> Course Analytics</div>
               <div className="w-full md:w-1/3">
-                <Select onValueChange={setSelectedCourseId} disabled={isLoadingCourses}>
-                  <SelectTrigger>
+                <Select
+                  value={selectedCourseId || ''}
+                  onValueChange={(id) => setSelectedCourseId(id)}
+                  disabled={isLoadingCourses || courses.length === 0}
+                >
+                  <SelectTrigger className="w-full md:w-[300px]">
                     <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : "Select a course"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {courses.length > 0 ? (
-                      courses.map(course => <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>)
-                    ) : (
-                      <SelectItem value="no-course" disabled>No courses found</SelectItem>
-                    )}
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.title}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
