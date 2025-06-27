@@ -91,7 +91,7 @@ const Dashboard = () => {
     const fetchCourses = async () => {
       setIsLoadingCourses(true);
       try {
-        const response = await fetchWithAuth('/api/my-courses');
+        const response = await fetchWithAuth('/api/courses/my-courses');
         const data = await response.json();
         setCourses(data.courses || []);
       } catch (err) {
