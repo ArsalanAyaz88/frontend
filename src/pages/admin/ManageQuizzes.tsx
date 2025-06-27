@@ -191,7 +191,6 @@ const ManageQuizzes = () => {
       toast.success(`Quiz ${editingQuiz ? 'updated' : 'created'} successfully!`);
       setIsQuizModalOpen(false);
       fetchQuizzes();
-
     } catch (error: any) {
       toast.error(error.message || `Failed to ${editingQuiz ? 'update' : 'create'} quiz.`);
     }
@@ -219,11 +218,9 @@ const ManageQuizzes = () => {
   const openEditModal = (quiz: Quiz) => {
     setEditingQuiz(quiz);
     setQuizTitle(quiz.title);
-    setQuizDesc(quiz.description);
-    setTimeLimit(String(quiz.time_limit));
-    setDueDate(format(new Date(quiz.due_date), "yyyy-MM-dd'T'HH:mm"));
-    // For now, editing starts with a clean slate for questions as they are not fetched in the list view.
-    // A separate fetch for full quiz details would be needed to implement question editing.
+    setQuizDesc(quiz.description || '');
+    setTimeLimit(String(quiz.time_limit || 30));
+    setDueDate(quiz.due_date ? format(new Date(quiz.due_date), "yyyy-MM-dd'T'HH:mm") : '');
     setQuestions(quiz.questions || []);
     setIsQuizModalOpen(true);
   };
@@ -257,16 +254,16 @@ const ManageQuizzes = () => {
     const question = newQuestions[qIndex];
     question.is_multiple_choice = isChecked;
     if (!isChecked) {
-        let firstCorrectFound = false;
-        question.options.forEach(opt => {
-            if (opt.is_correct) {
-                if (firstCorrectFound) opt.is_correct = false;
-                firstCorrectFound = true;
-            }
-        });
-        if (!firstCorrectFound && question.options.length > 0) {
-            question.options[0].is_correct = true;
+      let firstCorrectFound = false;
+      question.options.forEach(opt => {
+        if (opt.is_correct) {
+          if (firstCorrectFound) opt.is_correct = false;
+          firstCorrectFound = true;
         }
+      });
+      if (!firstCorrectFound && question.options.length > 0) {
+        question.options[0].is_correct = true;
+      }
     }
     setQuestions(newQuestions);
   };
