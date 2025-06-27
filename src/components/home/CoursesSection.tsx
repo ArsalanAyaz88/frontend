@@ -26,7 +26,7 @@ const CoursesSection = () => {
     const fetchCourses = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch('https://student-portal-lms-red.vercel.app/api/courses/explore-courses');
+        const response = await fetch('/api/explore-courses');
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch courses' }));
           throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);

@@ -48,8 +48,8 @@ const CourseDetail = () => {
       setError(null);
       try {
         const [courseRes, videosRes] = await Promise.all([
-          fetchWithAuth(`/api/courses/explore-courses/${courseId}`),
-          fetchWithAuth(`/api/courses/my-courses/${courseId}/videos`)
+          fetchWithAuth(`/api/explore-courses/${courseId}`),
+          fetchWithAuth(`/api/my-courses/${courseId}/videos`)
         ]);
 
         const courseData = await handleApiResponse(courseRes);
