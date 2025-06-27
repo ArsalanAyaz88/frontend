@@ -93,7 +93,14 @@ const Dashboard = () => {
       try {
         const response = await fetchWithAuth('/api/courses/my-courses');
         const data = await response.json();
-        setCourses(data.courses || []);
+        console.log("Raw API data for courses:", data);
+        const rawCourses = Array.isArray(data) ? data : data.courses || [];
+        const formattedCourses = rawCourses.map((course: any) => ({
+          course_id: String(course.course_id || course.id || course._id),
+          title: String(course.title || course.name),
+        }));
+        console.log("Formatted courses for selector:", formattedCourses);
+        setCourses(formattedCourses);
       } catch (err) {
         console.error("Failed to fetch enrolled courses", err);
         setError("Could not load your courses. Please try refreshing.");
