@@ -166,11 +166,7 @@ const AdminCourseDetail = () => {
               <CardTitle>Course Thumbnail</CardTitle>
             </CardHeader>
             <CardContent>
-              {course.thumbnail_url ? (
-                <img src={course.thumbnail_url} alt={course.title} className="rounded-lg w-full object-cover" />
-              ) : (
-                <p>No thumbnail available.</p>
-              )}
+              <img src={course.thumbnail_url || 'https://placehold.co/600x400'} alt={course.title} className="rounded-lg w-full object-cover" />
             </CardContent>
           </Card>
         </div>
