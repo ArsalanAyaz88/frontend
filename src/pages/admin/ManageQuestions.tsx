@@ -108,10 +108,15 @@ const ManageQuestions: React.FC = () => {
         : `/api/admin/quizzes/${quizId}/questions`;
       const method = isEditing ? 'PUT' : 'POST';
 
+      const payload = {
+        text: currentQuestion.text,
+        options: currentQuestion.options?.map(({ text, is_correct }) => ({ text, is_correct })) || [],
+      };
+
       const response = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentQuestion),
+        body: JSON.stringify(payload),
       });
 
       await handleApiResponse(response);
