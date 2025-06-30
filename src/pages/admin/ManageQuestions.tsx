@@ -60,7 +60,7 @@ const ManageQuestions: React.FC = () => {
     if (!quizId) return;
     setLoading(true);
     try {
-      const response = await fetchWithAuth(`/api/admin/quizzes/quizzes/${quizId}`);
+      const response = await fetchWithAuth(`/api/admin/quizzes/${quizId}`);
       const data = await handleApiResponse(response);
       setQuizDetails(data);
     } catch (error) {
