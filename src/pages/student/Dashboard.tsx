@@ -12,12 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 // --- DATA TYPES ---
-type Course = {
-  course_id: string;
-  title: string;
-};
-
 type AnalyticsData = {
+  course_id: string;
   course: {
     title: string;
     description: string;
@@ -39,198 +35,149 @@ type AnalyticsData = {
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [isLoadingCourses, setIsLoadingCourses] = useState(true);
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+  const [allAnalytics, setAllAnalytics] = useState<AnalyticsData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [feedback, setFeedback] = useState('');
   const [improvement, setImprovement] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
-  const [isCertificateLoading, setIsCertificateLoading] = useState(false);
+  const [isCertificateLoading, setIsCertificateLoading] = useState<Record<string, boolean>>({});
+  const [feedbackCourse, setFeedbackCourse] = useState<AnalyticsData | null>(null);
 
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const [userName, setUserName] = useState(() => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.full_name && user.full_name.toLowerCase() !== 'string') {
-      return user.full_name;
-    }
-    return 'Student';
+    return user.full_name && user.full_name.toLowerCase() !== 'string' ? user.full_name : 'Student';
   });
 
   useEffect(() => {
-    const fetchUserName = async () => {
-        try {
-            const response = await fetchWithAuth('/api/profile/profile');
-            if (!response.ok) return;
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch user name if not available
+        if (userName === 'Student') {
+          const response = await fetchWithAuth('/api/profile/profile');
+          if (response.ok) {
             const data = await response.json();
             if (data.full_name && data.full_name.toLowerCase() !== 'string') {
-                setUserName(data.full_name);
-                const userSession = JSON.parse(localStorage.getItem('user') || '{}');
-                userSession.full_name = data.full_name;
-                localStorage.setItem('user', JSON.stringify(userSession));
-            } else {
-                const userSession = JSON.parse(localStorage.getItem('user') || '{}');
-                if (userSession.full_name && userSession.full_name.toLowerCase() === 'string') {
-                    delete userSession.full_name;
-                    localStorage.setItem('user', JSON.stringify(userSession));
-                }
+              setUserName(data.full_name);
+              const userSession = JSON.parse(localStorage.getItem('user') || '{}');
+              userSession.full_name = data.full_name;
+              localStorage.setItem('user', JSON.stringify(userSession));
             }
-        } catch (err) {
-            console.error("Could not fetch user name for dashboard:", err);
+          }
         }
-    };
-    fetchUserName();
-  }, []);
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      setIsLoadingCourses(true);
-      try {
-        const response = await fetchWithAuth('/api/courses/my-courses');
-        const data = await response.json();
-        console.log("Raw API data for courses:", data);
-        const rawCourses = Array.isArray(data) ? data : data.courses || [];
-        const formattedCourses = rawCourses.map((course: any) => ({
-          course_id: String(course.course_id || course.id || course._id),
-          title: String(course.title || course.name),
-        }));
-        console.log("Formatted courses for selector:", formattedCourses);
-        setCourses(formattedCourses);
+        // Fetch all analytics
+        const analyticsResponse = await fetchWithAuth('/api/student/dashboard/all-analytics');
+        const analyticsData = await analyticsResponse.json();
+        setAllAnalytics(analyticsData);
+
       } catch (err) {
-        console.error("Failed to fetch enrolled courses", err);
-        setError("Could not load your courses. Please try refreshing.");
+        console.error("Failed to fetch dashboard data", err);
+        setError("Could not load your dashboard. Please try again later.");
         if (err instanceof UnauthorizedError) navigate('/login');
       }
-      setIsLoadingCourses(false);
+      setIsLoading(false);
     };
-    fetchCourses();
+    fetchInitialData();
   }, [navigate]);
 
-  const fetchAnalytics = async (courseId: string) => {
-    if (!courseId) return;
-    setSelectedCourseId(courseId);
-    setIsLoadingAnalytics(true);
-    setAnalytics(null);
+  const handleGetCertificate = async (courseId: string) => {
+    setIsCertificateLoading(prev => ({ ...prev, [courseId]: true }));
     try {
-      const response = await fetchWithAuth(`/api/student/dashboard/courses/${courseId}/analytics`);
-      const data = await response.json();
-      setAnalytics(data);
-    } catch (err) {
-      console.error(`Failed to fetch analytics for course ${courseId}`, err);
-      setError("Could not load analytics for this course.");
-      if (err instanceof UnauthorizedError) navigate('/login');
+        const response = await fetchWithAuth(`/api/courses/get-certificate/${courseId}`);
+        const data = await response.json();
+        if (response.ok) {
+            window.open(data.certificate_url, '_blank');
+            toast({ title: 'Success', description: 'Certificate is being downloaded!' });
+        } else {
+            throw new Error(data.detail || 'Failed to get certificate');
+        }
+    } catch (err: any) {
+        console.error('Certificate download error:', err);
+        toast({ variant: 'destructive', title: 'Error', description: err.message || 'An error occurred.' });
     }
-    setIsLoadingAnalytics(false);
+    setIsCertificateLoading(prev => ({ ...prev, [courseId]: false }));
   };
 
-  const handleGetCertificate = async (courseId: string) => {
-    if (!analytics) return;
-    setIsCertificateLoading(true);
-    try {
-      const response = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate`);
-      if (!response.ok) {
-        throw new Error('Failed to download certificate. Please try again later.');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${analytics.course.title}-certificate.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      toast({ title: "Success", description: "Certificate download started." });
-    } catch (err) {
-      console.error("Failed to get certificate", err);
-      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
-    }
-    setIsCertificateLoading(false);
+  const handleOpenFeedbackDialog = (analytics: AnalyticsData) => {
+    setFeedbackCourse(analytics);
+    setIsFeedbackDialogOpen(true);
   };
 
   const handleFeedbackSubmit = async () => {
-    if (!selectedCourseId || !feedback) {
-      toast({ title: "Feedback Required", description: "Please provide some feedback before submitting.", variant: "destructive" });
+    if (!feedbackCourse || !feedback) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please provide feedback before submitting.' });
       return;
     }
     setIsFeedbackSubmitting(true);
     try {
-      const response = await fetchWithAuth(`/api/student/dashboard/courses/${selectedCourseId}/analytics/feedback`, {
+      const response = await fetchWithAuth(`/api/student/dashboard/courses/${feedbackCourse.course_id}/feedback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feedback, improvement }),
+        body: JSON.stringify({ feedback, improvement_suggestions: improvement }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to submit feedback');
-
-      toast({ title: "Feedback Submitted", description: "Thank you for your feedback!" });
-      setIsFeedbackDialogOpen(false);
-      setFeedback('');
-      setImprovement('');
-    } catch (err) {
-      console.error("Feedback submission failed", err);
-      toast({ title: "Submission Error", description: (err as Error).message, variant: "destructive" });
+      if (response.ok) {
+        toast({ title: 'Success', description: 'Thank you for your feedback!' });
+        setIsFeedbackDialogOpen(false);
+        setFeedback('');
+        setImprovement('');
+        setFeedbackCourse(null);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to submit feedback.');
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.message });
     }
     setIsFeedbackSubmitting(false);
   };
 
+  if (isLoading) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="flex justify-center items-center h-[calc(100vh-8rem)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout userType="student">
-      <div className="space-y-6">
+      <div className="space-y-8">
         <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
         
-        {error && <div className="p-4 bg-destructive/10 text-destructive border border-destructive/50 rounded-lg">{error}</div>}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex justify-between items-center">
-              <span>My Analytics Dashboard</span>
-              <div className="w-full md:w-1/3">
-                <Select
-                  value={selectedCourseId || ''}
-                  onValueChange={fetchAnalytics}
-                  disabled={isLoadingCourses || courses.length === 0}
-                >
-                  <SelectTrigger className="w-full md:w-[300px]">
-                    <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : courses.length === 0 ? "No courses found" : "Select an enrolled course"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses.map((course) => (
-                      <SelectItem key={course.course_id} value={course.course_id}>
-                        {course.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingAnalytics ? (
-              <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
-            ) : analytics ? (
-              <AnalyticsDisplay 
-                analytics={analytics} 
-                onFeedbackClick={() => setIsFeedbackDialogOpen(true)}
-                onGetCertificate={() => handleGetCertificate(selectedCourseId!)}
-                isCertificateLoading={isCertificateLoading}
-              />
-            ) : (
-              <div className="text-center h-64 flex items-center justify-center"><p className='text-muted-foreground'>Select one of your enrolled courses to view your progress and analytics.</p></div>
-            )}
-          </CardContent>
-        </Card>
+        {allAnalytics.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {allAnalytics.map(analytics => (
+              <Card key={analytics.course_id} className="flex flex-col">
+                <CardHeader>
+                  <CardTitle>{analytics.course.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <AnalyticsDisplay 
+                    analytics={analytics} 
+                    onFeedbackClick={() => handleOpenFeedbackDialog(analytics)}
+                    onGetCertificate={() => handleGetCertificate(analytics.course_id)}
+                    isCertificateLoading={!!isCertificateLoading[analytics.course_id]}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center h-64 flex items-center justify-center bg-muted/20 rounded-lg">
+            <p className='text-muted-foreground'>You are not enrolled in any courses yet. Explore our courses to get started!</p>
+          </div>
+        )}
 
         <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Provide Feedback for {analytics?.course.title || 'this course'}</DialogTitle>
+              <DialogTitle>Provide Feedback for {feedbackCourse?.course.title || 'this course'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <Textarea placeholder="What did you like or find helpful?" value={feedback} onChange={e => setFeedback(e.target.value)} rows={4}/>
