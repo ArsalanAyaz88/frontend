@@ -101,7 +101,7 @@ const ManageQuizzes: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this quiz?')) return;
 
     try {
-      const response = await fetchWithAuth(`/api/admin/quizzes/quizzes/${quizId}`, { method: 'DELETE' });
+      const response = await fetchWithAuth(`/api/admin/quizzes/${quizId}`, { method: 'DELETE' });
       await handleApiResponse(response);
       toast.success('Quiz deleted successfully!');
       if (selectedCourseId) {
@@ -120,7 +120,7 @@ const ManageQuizzes: React.FC = () => {
 
     const isEditing = !!currentQuiz.id;
     const url = isEditing
-      ? `/api/admin/quizzes/quizzes/${currentQuiz.id}`
+      ? `/api/admin/quizzes/${currentQuiz.id}`
       : `/api/admin/quizzes/courses/${currentQuiz.course_id}/quizzes`;
     const method = isEditing ? 'PUT' : 'POST';
 
