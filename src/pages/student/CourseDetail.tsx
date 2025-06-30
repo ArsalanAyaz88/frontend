@@ -267,7 +267,7 @@ const CourseDetail = () => {
 
           <div className="lg:col-span-1">
             <Card className="sticky top-24 shadow-lg">
-              <img src={course.thumbnail_url || 'https://placehold.co/600x400'} alt={course.title} className="w-full h-auto rounded-t-lg" />
+              <img src={course.thumbnail_url ? `${import.meta.env.VITE_API_BASE_URL}/${course.thumbnail_url}` : 'https://placehold.co/600x400'} alt={course.title} className="w-full h-auto rounded-t-lg" />
               <CardContent className="p-6 space-y-4">
                 <h3 className="text-4xl font-bold text-center text-primary">{course.price > 0 ? `$${course.price}` : 'Free'}</h3>
                 <Button size="lg" className="w-full font-bold text-lg" onClick={handleEnrollNow}>Enroll Now</Button>
