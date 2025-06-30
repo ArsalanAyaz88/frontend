@@ -44,9 +44,11 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetcher(courseId);
-      console.log('Received course data:', data);
-      setContent(data[dataKey]);
+      const response = await fetcher(courseId);
+      const data = await handleApiResponse(response);
+      // The videos endpoint returns an array directly, not an object with a 'videos' key.
+      const contentData = dataKey === 'videos' ? data : data[dataKey];
+      setContent(contentData);
     } catch (err: any) {
       setError('Failed to load content. Please try refreshing.');
       console.error(`Failed to fetch ${dataKey}:`, err);
@@ -158,7 +160,7 @@ const fetchDescription = (id: string) => fetchWithAuth(`/api/courses/courses/${i
 const fetchOutcomes = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/outcomes`).then(handleApiResponse);
 const fetchPrerequisites = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/prerequisites`).then(handleApiResponse);
 const fetchCurriculum = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/curriculum`).then(handleApiResponse);
-const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/my-courses/${id}/videos`).then(handleApiResponse);
+const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/my-courses/${id}/videos-with-checkpoint`).then(handleApiResponse);
 
 // --- MAIN COMPONENT ---
 const CourseDetail = () => {
