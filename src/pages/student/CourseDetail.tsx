@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Check, BookOpen, Target, ListVideo } from 'lucide-react';
+import { Loader2, Check, BookOpen, Target, ListVideo, CheckCircle2, Circle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,11 @@ interface CourseInfo {
 }
 
 interface VideoInfo {
+  id: string;
   title: string;
-  video_url: string;
+  youtube_url: string;
+  description: string | null;
+  watched: boolean;
 }
 
 interface TabContentProps {
@@ -35,23 +38,60 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
   const [content, setContent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const loadContent = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetcher(courseId);
+      setContent(data[dataKey]);
+    } catch (err: any) {
+      setError('Failed to load content. Please try refreshing.');
+      console.error(`Failed to fetch ${dataKey}:`, err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadContent = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await fetcher(courseId);
-        setContent(data[dataKey]);
-      } catch (err: any) {
-        setError('Failed to load content. Please try refreshing.');
-        console.error(`Failed to fetch ${dataKey}:`, err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadContent();
   }, [courseId, fetcher, dataKey]);
+
+  const getYouTubeEmbedUrl = (url: string) => {
+    try {
+        const urlObj = new URL(url);
+        const videoId = urlObj.searchParams.get('v');
+        return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
+    } catch (e) {
+        console.error("Invalid YouTube URL", e);
+        return '';
+    }
+  }
+
+  const handleToggleWatched = async (videoId: string) => {
+    try {
+      await fetchWithAuth(`/api/courses/videos/${videoId}/complete`, { method: 'POST' });
+      
+      setContent((prevContent: VideoInfo[]) =>
+        prevContent.map(v =>
+          v.id === videoId ? { ...v, watched: !v.watched } : v
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: "Video status updated.",
+      });
+    } catch (error) {
+      console.error("Failed to update video status", error);
+      toast({
+        title: "Error",
+        description: "Failed to update video status.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) return <div className="flex justify-center items-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (error) return <p className="text-destructive p-4">{error}</p>;
@@ -60,20 +100,29 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
   if (dataKey === 'videos' && Array.isArray(content)) {
     return (
       <div className="p-4 space-y-6">
-        {(content as VideoInfo[]).map((video, index) => (
-          <Card key={index} className="overflow-hidden">
+        {(content as VideoInfo[]).map((video) => (
+          <Card key={video.id} className="overflow-hidden">
             <CardHeader>
-              <CardTitle>{video.title}</CardTitle>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle>{video.title}</CardTitle>
+                  {video.description && <p className="text-muted-foreground text-sm mt-1">{video.description}</p>}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => handleToggleWatched(video.id)} className="shrink-0 ml-4">
+                  {video.watched ? <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" /> : <Circle className="h-5 w-5 mr-2" />}
+                  {video.watched ? 'Completed' : 'Mark as Complete'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+              <div className="aspect-video relative">
                 <iframe
-                  src={video.video_url}
+                  src={getYouTubeEmbedUrl(video.youtube_url)}
                   title={video.title}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                  className="absolute top-0 left-0 w-full h-full"
                 />
               </div>
             </CardContent>
@@ -108,7 +157,7 @@ const fetchDescription = (id: string) => fetchWithAuth(`/api/courses/courses/${i
 const fetchOutcomes = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/outcomes`).then(handleApiResponse);
 const fetchPrerequisites = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/prerequisites`).then(handleApiResponse);
 const fetchCurriculum = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/curriculum`).then(handleApiResponse);
-const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/videos`).then(handleApiResponse);
+const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/my-courses/${id}/videos`).then(handleApiResponse);
 
 // --- MAIN COMPONENT ---
 const CourseDetail = () => {
