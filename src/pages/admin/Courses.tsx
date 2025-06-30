@@ -150,6 +150,7 @@ const AdminCourses = () => {
         videos: courseDetails.videos && courseDetails.videos.length > 0 ? courseDetails.videos : [{ youtube_url: '', title: '', description: '' }],
       });
       setSelectedCourse(courseDetails);
+      setThumbnailPreview(courseDetails.thumbnail_url || null);
       setIsDialogOpen(true);
     } catch (error) {
       toast.error('Failed to fetch course details.');
@@ -201,37 +202,12 @@ const AdminCourses = () => {
       return;
     }
 
-    let thumbnailUrl = selectedCourse?.thumbnail_url || null;
-
-    // 1. Handle thumbnail upload if a new file is provided
-    const thumbnailFile = data.thumbnail?.[0];
-    if (thumbnailFile) {
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', thumbnailFile);
-
-      try {
-        toast.info('Uploading thumbnail...');
-        const uploadResponse = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/upload/image', {
-          method: 'POST',
-          body: uploadFormData,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const uploadResult = await handleApiResponse(uploadResponse);
-        thumbnailUrl = uploadResult.url;
-      } catch (error) {
-        toast.error('Failed to upload thumbnail.');
-        console.error("Thumbnail upload error:", error);
-        return; // Stop submission if upload fails
-      }
-    }
-
-    // 2. Prepare the course data payload
+    // The thumbnail is now uploaded on file selection. 
+    // The final URL is stored in the thumbnailPreview state.
     const { thumbnail: _thumbnail, ...restOfData } = data;
     const coursePayload = {
       ...restOfData,
-      thumbnail_url: thumbnailUrl,
+      thumbnail_url: thumbnailPreview,
     };
     
     // 3. Submit course data
@@ -275,6 +251,7 @@ const AdminCourses = () => {
         <Button onClick={() => {
           setSelectedCourse(null);
           form.reset();
+          setThumbnailPreview(null);
           setIsDialogOpen(true);
         }}>
           <PlusCircle className="mr-2 h-4 w-4" /> Create Course
@@ -317,14 +294,46 @@ const AdminCourses = () => {
                   className="col-span-3"
                   accept="image/*"
                   {...form.register('thumbnail')}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      setThumbnailPreview(URL.createObjectURL(file));
-                    } else {
+                    form.register('thumbnail').onChange(e); // Inform react-hook-form
+
+                    if (!file) {
+                      // If file selection is cancelled, revert to the original thumbnail
+                      setThumbnailPreview(selectedCourse?.thumbnail_url || null);
+                      return;
+                    }
+
+                    const uploadFormData = new FormData();
+                    uploadFormData.append('file', file);
+                    const token = localStorage.getItem('admin_access_token');
+                    if (!token) {
+                      toast.error('Authentication error. Please log in again.');
+                      return;
+                    }
+
+                    try {
+                      toast.info('Uploading thumbnail...');
+                      const uploadResponse = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/upload/image', {
+                        method: 'POST',
+                        body: uploadFormData,
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                        },
+                      });
+                      const uploadResult = await handleApiResponse(uploadResponse);
+                      if (uploadResult.url) {
+                        setThumbnailPreview(uploadResult.url);
+                        toast.success('Thumbnail preview updated!');
+                      } else {
+                        throw new Error("URL not found in response");
+                      }
+                    } catch (error) {
+                      toast.error('Failed to upload thumbnail.');
+                      console.error("Thumbnail upload error:", error);
+                      // Revert to original on failure
                       setThumbnailPreview(selectedCourse?.thumbnail_url || null);
                     }
-                    form.register('thumbnail').onChange(e);
                   }}
                 />
               </div>
