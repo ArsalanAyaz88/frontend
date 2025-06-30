@@ -104,7 +104,7 @@ const ManageQuestions: React.FC = () => {
     try {
       const isEditing = !!currentQuestion.id;
       const url = isEditing
-        ? `/api/admin/quizzes/questions/${currentQuestion.id}`
+        ? `/api/admin/questions/${currentQuestion.id}`
         : `/api/admin/quizzes/${quizId}/questions`;
       const method = isEditing ? 'PUT' : 'POST';
 
@@ -134,7 +134,7 @@ const ManageQuestions: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this question?')) return;
 
     try {
-      const response = await fetchWithAuth(`/api/admin/quizzes/questions/${questionId}`, { method: 'DELETE' });
+      const response = await fetchWithAuth(`/api/admin/questions/${questionId}`, { method: 'DELETE' });
       if (response.ok) {
         toast.success('Question deleted successfully.');
         fetchQuizDetails(); // Refresh data
