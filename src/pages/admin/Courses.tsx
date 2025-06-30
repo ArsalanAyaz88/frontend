@@ -68,7 +68,7 @@ const courseFormSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   price: z.coerce.number().min(0, 'Price cannot be negative'),
-  thumbnail_url: z.string().optional(),
+  thumbnail: z.any().refine(files => files?.length > 0 ? files?.[0]?.type.startsWith('image/') : true, 'Must be an image file').optional(),
   difficulty_level: z.string().optional(),
   outcomes: z.string().optional(),
   prerequisites: z.string().optional(),
@@ -92,7 +92,7 @@ const AdminCourses = () => {
       title: '',
       description: '',
       price: 0,
-      thumbnail_url: '',
+      thumbnail: undefined,
       difficulty_level: '',
       outcomes: '',
       prerequisites: '',
@@ -109,7 +109,7 @@ const AdminCourses = () => {
   const fetchCourses = async () => {
     setLoading(true);
     try {
-            const token = localStorage.getItem('admin_access_token');
+      const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/courses?skip=0&limit=100', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -130,28 +130,28 @@ const AdminCourses = () => {
 
   const handleEdit = async (courseId: string) => {
     try {
-                const token = localStorage.getItem('admin_access_token');
-        const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseId}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-        });
-        const courseDetails = await handleApiResponse(response);
-        form.reset({
-            title: courseDetails.title,
-            description: courseDetails.description || '',
-            price: courseDetails.price,
-            thumbnail_url: courseDetails.thumbnail_url || '',
-            difficulty_level: courseDetails.difficulty_level || '',
-            outcomes: courseDetails.outcomes || '',
-            prerequisites: courseDetails.prerequisites || '',
-            curriculum: courseDetails.curriculum || '',
-            videos: courseDetails.videos && courseDetails.videos.length > 0 ? courseDetails.videos : [{ youtube_url: '', title: '', description: '' }],
-        });
-        setSelectedCourse(courseDetails);
-        setIsDialogOpen(true);
+      const token = localStorage.getItem('admin_access_token');
+      const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const courseDetails = await handleApiResponse(response);
+      form.reset({
+        title: courseDetails.title,
+        description: courseDetails.description || '',
+        price: courseDetails.price,
+        thumbnail: undefined,
+        difficulty_level: courseDetails.difficulty_level || '',
+        outcomes: courseDetails.outcomes || '',
+        prerequisites: courseDetails.prerequisites || '',
+        curriculum: courseDetails.curriculum || '',
+        videos: courseDetails.videos && courseDetails.videos.length > 0 ? courseDetails.videos : [{ youtube_url: '', title: '', description: '' }],
+      });
+      setSelectedCourse(courseDetails);
+      setIsDialogOpen(true);
     } catch (error) {
-        toast.error('Failed to fetch course details.');
+      toast.error('Failed to fetch course details.');
     }
   };
 
@@ -160,7 +160,7 @@ const AdminCourses = () => {
     console.log(`Attempting to delete course with ID: ${courseToDelete}`);
     try {
       console.log('Before fetchWithAuth');
-            const token = localStorage.getItem('admin_access_token');
+      const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseToDelete}`, {
         method: 'DELETE',
         headers: {
@@ -183,57 +183,55 @@ const AdminCourses = () => {
   };
 
   const onSubmit = async (data: CourseFormData) => {
-    const url = selectedCourse ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse.id}` : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
-    const method = selectedCourse ? 'PUT' : 'POST';
-    const token = localStorage.getItem('admin_access_token');
+    const formData = new FormData();
 
-    try {
-      let response;
-      if (method === 'PUT') {
-        // Update request with JSON body
-        response = await fetchWithAuth(url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(data),
-        });
-      } else {
-        // Create request with FormData. Backend should handle 'courseData' field.
-        const formData = new FormData();
-        const { thumbnail, ...courseData } = data as any;
-        formData.append('course', JSON.stringify(courseData));
-        if (thumbnail && thumbnail[0]) {
-          formData.append('thumbnail', thumbnail[0]);
-        }
-        response = await fetchWithAuth(url, {
-          method,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: formData,
-        });
+    const { videos, thumbnail, ...courseData } = data;
+
+    Object.entries(courseData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, String(value));
       }
-      
-      const savedCourse = await handleApiResponse(response);
-      toast.success(selectedCourse ? 'Course updated successfully!' : 'Course created successfully!');
-      setIsDialogOpen(false);
-      setSelectedCourse(null);
-      form.reset();
-      fetchCourses();
-      if (selectedCourse) {
-        setCourses(prevCourses =>
-          prevCourses.map(course =>
-            course.id === savedCourse.id ? savedCourse : course
-          )
-        );
-      } else {
-        setCourses(prevCourses => [...prevCourses, savedCourse]);
-      }
-  } catch (error) {
-      toast.error(`Failed to ${selectedCourse ? 'update' : 'create'} course.`);
+    });
+
+    if (thumbnail && thumbnail[0]) {
+      formData.append('thumbnail', thumbnail[0]);
     }
+
+    const previewVideo = videos.length > 0 ? videos[0] : null;
+    const otherVideos = videos.length > 1 ? videos.slice(1) : [];
+
+    if(previewVideo) {
+      formData.append('preview_video', JSON.stringify(previewVideo));
+    }
+    formData.append('videos', JSON.stringify(otherVideos));
+    formData.append('status', 'active');
+
+    const method = selectedCourse ? 'PUT' : 'POST';
+    const url = selectedCourse
+      ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse.id}`
+      : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
+
+    const promise = async () => {
+      const response = await fetchWithAuth(url, {
+        method,
+        body: formData,
+      });
+      return handleApiResponse(response);
+    };
+
+    toast.promise(promise(), {
+      loading: `${selectedCourse ? 'Updating' : 'Creating'} course...`,
+      success: () => {
+        fetchCourses();
+        setIsDialogOpen(false);
+        form.reset();
+        return `Course ${selectedCourse ? 'updated' : 'created'} successfully.`;
+      },
+      error: (err) => {
+        console.error(err);
+        return `Failed to ${selectedCourse ? 'update' : 'create'} course.`;
+      },
+    });
   };
 
   return (
@@ -275,11 +273,11 @@ const AdminCourses = () => {
                 <Input id="price" type="number" {...form.register('price')} />
                 {form.formState.errors.price && <p className="text-red-500 text-sm">{form.formState.errors.price.message}</p>}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="thumbnail_url">Thumbnail URL</Label>
-                <Input id="thumbnail_url" {...form.register('thumbnail_url')} />
-                {form.formState.errors.thumbnail_url && <p className="text-red-500 text-sm">{form.formState.errors.thumbnail_url.message}</p>}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="thumbnail" className="text-right">Thumbnail</Label>
+                <Input id="thumbnail" type="file" {...form.register('thumbnail')} className="col-span-3" />
               </div>
+                            {form.formState.errors.thumbnail && <p className="text-red-500 text-sm col-span-4 text-right">{form.formState.errors.thumbnail.message as string}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="difficulty_level">Difficulty Level</Label>

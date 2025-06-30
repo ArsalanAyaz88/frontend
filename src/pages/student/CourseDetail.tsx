@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Check, BookOpen, Target, ListVideo, CheckCircle2, Circle } from 'lucide-react';
+import { Loader2, Check, BookOpen, Target, ListVideo, CheckCircle2, Circle, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -167,23 +167,45 @@ const CourseDetail = () => {
   const [course, setCourse] = useState<CourseInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEnrolled, setIsEnrolled] = useState(false);
 
   useEffect(() => {
     if (!courseId) return;
-    const fetchCourseInfo = async () => {
+        const fetchCourseData = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(handleApiResponse);
-        setCourse(data);
+        // Fetch course details
+        const courseDataPromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(handleApiResponse);
+        // Fetch enrollment status
+        const enrollmentStatusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`).then(handleApiResponse);
+
+        const [courseData, enrollmentStatus] = await Promise.all([
+          courseDataPromise,
+          enrollmentStatusPromise
+        ]);
+
+        setCourse(courseData);
+        setIsEnrolled(enrollmentStatus.is_enrolled);
+
       } catch (err: any) {
-        console.error("Failed to fetch course details", err);
-        if (err instanceof UnauthorizedError) navigate('/login');
-        setError("Could not load course details. Please try again.");
+        console.error("Failed to fetch course data", err);
+        if (err instanceof UnauthorizedError) {
+          navigate('/login');
+        } else {
+           // It's possible the enrollment check fails for non-enrolled users, which is okay.
+           // We'll proceed with just the course data if it's available.
+           try {
+             const courseData = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(handleApiResponse);
+             setCourse(courseData);
+           } catch (finalErr) {
+             setError("Could not load course details. Please try again.");
+           }
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    fetchCourseInfo();
+    fetchCourseData();
   }, [courseId, navigate]);
 
   const handleEnrollNow = () => {
@@ -227,8 +249,17 @@ const CourseDetail = () => {
                 <TabsContent value="curriculum">
                                     <DynamicTabContent courseId={courseId!} fetcher={fetchCurriculum} dataKey="curriculum" />
                 </TabsContent>
-                <TabsContent value="videos">
-                  <DynamicTabContent courseId={courseId!} fetcher={fetchVideos} dataKey="videos" />
+                                <TabsContent value="videos">
+                  {isEnrolled ? (
+                    <DynamicTabContent courseId={courseId!} fetcher={fetchVideos} dataKey="videos" />
+                  ) : (
+                    <div className="p-8 text-center">
+                      <Lock className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <h3 className="mt-4 text-lg font-semibold">Videos Locked</h3>
+                      <p className="mt-2 text-sm text-muted-foreground">You must enroll in this course to access the videos.</p>
+                      <Button className="mt-6" onClick={handleEnrollNow}>Enroll Now</Button>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </Card>
