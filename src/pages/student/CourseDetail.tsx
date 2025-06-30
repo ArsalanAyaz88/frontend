@@ -169,8 +169,7 @@ const CourseDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+
 
   useEffect(() => {
     if (!courseId) return;
@@ -217,47 +216,6 @@ const CourseDetail = () => {
     if (course) navigate(`/student/payment/${course.id}`);
   };
 
-  const handleThumbnailUpload = async () => {
-    if (!selectedFile || !courseId) return;
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
-    try {
-        const response = await fetchWithAuth(`/api/courses/${courseId}/thumbnail`, {
-            method: 'PUT',
-            body: formData,
-        });
-
-        const updatedCourse = await handleApiResponse(response);
-
-        if (course) {
-            setCourse({ ...course, thumbnail_url: updatedCourse.thumbnail_url });
-        }
-
-        toast({
-            title: "Success",
-            description: "Thumbnail updated successfully.",
-        });
-        setSelectedFile(null);
-        const input = document.getElementById('thumbnail-upload') as HTMLInputElement;
-        if (input) {
-            input.value = '';
-        }
-
-    } catch (error) {
-        console.error("Failed to upload thumbnail", error);
-        toast({
-            title: "Upload Failed",
-            description: `Could not update the thumbnail. ${(error as Error).message}`,
-            variant: "destructive",
-        });
-    } finally {
-        setIsUploading(false);
-    }
-  };
-
   if (isLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-16 w-16 animate-spin" /></div>;
   if (error) return <div className="text-center py-10"><p className="text-destructive">{error}</p></div>;
   if (!course) return <div className="text-center py-10"><p>Course not found.</p></div>;
@@ -280,7 +238,7 @@ const CourseDetail = () => {
                   <TabsTrigger value="description"><BookOpen className="mr-2 h-4 w-4"/>Description</TabsTrigger>
                   <TabsTrigger value="outcomes"><Target className="mr-2 h-4 w-4"/>Outcomes</TabsTrigger>
                   <TabsTrigger value="prerequisites"><Check className="mr-2 h-4 w-4"/>Prerequisites</TabsTrigger>
-                                    <TabsTrigger value="curriculum"><ListVideo className="mr-2 h-4 w-4"/>Curriculum</TabsTrigger>
+                  <TabsTrigger value="curriculum"><ListVideo className="mr-2 h-4 w-4"/>Curriculum</TabsTrigger>
                   <TabsTrigger value="videos"><ListVideo className="mr-2 h-4 w-4"/>Videos</TabsTrigger>
                 </TabsList>
                 <TabsContent value="description">
@@ -293,9 +251,9 @@ const CourseDetail = () => {
                   <DynamicTabContent courseId={courseId!} fetcher={fetchPrerequisites} dataKey="prerequisites" />
                 </TabsContent>
                 <TabsContent value="curriculum">
-                                    <DynamicTabContent courseId={courseId!} fetcher={fetchCurriculum} dataKey="curriculum" />
+                  <DynamicTabContent courseId={courseId!} fetcher={fetchCurriculum} dataKey="curriculum" />
                 </TabsContent>
-                                <TabsContent value="videos">
+                <TabsContent value="videos">
                   {isEnrolled ? (
                     <DynamicTabContent courseId={courseId!} fetcher={fetchVideos} dataKey="videos" />
                   ) : (
@@ -313,33 +271,18 @@ const CourseDetail = () => {
 
           <div className="lg:col-span-1">
             <Card className="sticky top-24 shadow-lg">
-                            <img src={course.thumbnail_url ? course.thumbnail_url : 'https://placehold.co/600x400'} alt={course.title} className="w-full h-auto rounded-t-lg" />
+              <img src={course.thumbnail_url ? course.thumbnail_url : 'https://placehold.co/600x400'} alt={course.title} className="w-full h-auto rounded-t-lg" />
               
-              {/* This UI should be protected by an admin/instructor role check */}
-              <div className="p-4 border-t">
-                <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Update Thumbnail</h4>
-                <div className="space-y-2">
-                  <input
-                    id="thumbnail-upload"
-                    type="file"
-                    accept="image/png, image/jpeg"
-                    onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
-                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-                  />
-                  <Button
-                    onClick={handleThumbnailUpload}
-                    disabled={!selectedFile || isUploading}
-                    className="w-full"
-                    size="sm"
-                  >
-                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                    Upload
-                  </Button>
-                </div>
-              </div>
               <CardContent className="p-6 space-y-4">
                 <h3 className="text-4xl font-bold text-center text-primary">{course.price > 0 ? `$${course.price}` : 'Free'}</h3>
-                <Button size="lg" className="w-full font-bold text-lg" onClick={handleEnrollNow}>Enroll Now</Button>
+                {isEnrolled ? (
+                  <div className="flex items-center justify-center font-bold text-lg bg-green-100 text-green-800 p-3 rounded-md">
+                    <CheckCircle2 className="mr-2 h-6 w-6" />
+                    Enrolled
+                  </div>
+                ) : (
+                  <Button size="lg" className="w-full font-bold text-lg" onClick={handleEnrollNow}>Enroll Now</Button>
+                )}
               </CardContent>
             </Card>
           </div>
