@@ -45,6 +45,7 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
     setError(null);
     try {
       const data = await fetcher(courseId);
+      console.log('Received course data:', data);
       setContent(data[dataKey]);
     } catch (err: any) {
       setError('Failed to load content. Please try refreshing.');
@@ -184,6 +185,7 @@ const CourseDetail = () => {
           enrollmentStatusPromise
         ]);
 
+        console.log('Received course data (initial fetch):', courseData);
         setCourse(courseData);
         setIsEnrolled(enrollmentStatus.is_enrolled);
 
@@ -196,6 +198,7 @@ const CourseDetail = () => {
            // We'll proceed with just the course data if it's available.
            try {
              const courseData = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(handleApiResponse);
+             console.log('Received course data (fallback fetch):', courseData);
              setCourse(courseData);
            } catch (finalErr) {
              setError("Could not load course details. Please try again.");
