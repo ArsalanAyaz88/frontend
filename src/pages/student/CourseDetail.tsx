@@ -178,8 +178,15 @@ const CourseDetail = () => {
       try {
         // Fetch course details
         const courseDataPromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(handleApiResponse);
-        // Fetch enrollment status
-        const enrollmentStatusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`).then(handleApiResponse);
+        // Fetch enrollment status, gracefully handle errors for non-enrolled users
+        const enrollmentStatusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`)
+          .then(handleApiResponse)
+          .catch(error => {
+            // If the enrollment status endpoint fails (e.g., 404 for non-enrolled user),
+            // we'll assume the user is not enrolled and log the error.
+            console.warn("Enrollment status check failed (this is expected if not enrolled):", error);
+            return { is_enrolled: false };
+          });
 
         const [courseData, enrollmentStatus] = await Promise.all([
           courseDataPromise,
@@ -195,15 +202,7 @@ const CourseDetail = () => {
         if (err instanceof UnauthorizedError) {
           navigate('/login');
         } else {
-           // It's possible the enrollment check fails for non-enrolled users, which is okay.
-           // We'll proceed with just the course data if it's available.
-           try {
-             const courseData = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(handleApiResponse);
-             console.log('Received course data (fallback fetch):', courseData);
-             setCourse(courseData);
-           } catch (finalErr) {
-             setError("Could not load course details. Please try again.");
-           }
+          setError("Could not load course details. Please try again.");
         }
       } finally {
         setIsLoading(false);
