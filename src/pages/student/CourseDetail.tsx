@@ -156,11 +156,11 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
 };
 
 // --- API FETCHERS ---
-const fetchDescription = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/description`).then(handleApiResponse);
-const fetchOutcomes = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/outcomes`).then(handleApiResponse);
-const fetchPrerequisites = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/prerequisites`).then(handleApiResponse);
-const fetchCurriculum = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/curriculum`).then(handleApiResponse);
-const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/my-courses/${id}/videos-with-checkpoint`).then(handleApiResponse);
+const fetchDescription = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/description`);
+const fetchOutcomes = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/outcomes`);
+const fetchPrerequisites = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/prerequisites`);
+const fetchCurriculum = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/curriculum`);
+const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/my-courses/${id}/videos-with-checkpoint`);
 
 // --- MAIN COMPONENT ---
 const CourseDetail = () => {
