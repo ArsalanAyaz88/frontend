@@ -258,7 +258,7 @@ const AdminCourses = () => {
         setSelectedCourse(null);
         setThumbnailPreview(null); // Clear preview on success
         form.reset();
-        fetchCourses();
+        fetchCourses(); // Re-fetch courses to update the list
         return selectedCourse ? 'Course updated successfully!' : 'Course created successfully!';
       },
       error: (err) => {
