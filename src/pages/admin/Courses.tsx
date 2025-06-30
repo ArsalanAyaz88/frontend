@@ -308,7 +308,9 @@ const AdminCourses = () => {
                 {form.formState.errors.price && <p className="text-red-500 text-sm">{form.formState.errors.price.message}</p>}
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="thumbnail" className="text-right">Thumbnail</Label>
+                <Label htmlFor="thumbnail" className="text-right">
+                  Thumbnail
+                </Label>
                 <Input
                   id="thumbnail"
                   type="file"
@@ -320,15 +322,22 @@ const AdminCourses = () => {
                     if (file) {
                       setThumbnailPreview(URL.createObjectURL(file));
                     } else {
-                      setThumbnailPreview(null);
+                      setThumbnailPreview(selectedCourse?.thumbnail_url || null);
                     }
+                    form.register('thumbnail').onChange(e);
                   }}
                 />
               </div>
-              {thumbnailPreview && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <div className="col-start-2 col-span-3">
-                    <img src={thumbnailPreview} alt="Thumbnail preview" className="mt-2 max-h-40 rounded-lg border" />
+
+              {(thumbnailPreview || (selectedCourse && selectedCourse.thumbnail_url)) && (
+                <div className="grid grid-cols-4 items-center gap-4 mt-2">
+                  <Label className="text-right">Preview</Label>
+                  <div className="col-span-3">
+                    <img
+                      src={thumbnailPreview || selectedCourse?.thumbnail_url}
+                      alt="Thumbnail Preview"
+                      className="max-h-40 rounded-lg border object-cover"
+                    />
                   </div>
                 </div>
               )}
