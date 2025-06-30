@@ -19,6 +19,11 @@ interface CourseInfo {
   id: string;
 }
 
+interface VideoInfo {
+  title: string;
+  video_url: string;
+}
+
 interface TabContentProps {
   courseId: string;
   fetcher: (id: string) => Promise<any>;
@@ -52,6 +57,32 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
   if (error) return <p className="text-destructive p-4">{error}</p>;
   if (!content || (Array.isArray(content) && content.length === 0)) return <p className="p-4 text-muted-foreground">No information available.</p>;
 
+  if (dataKey === 'videos' && Array.isArray(content)) {
+    return (
+      <div className="p-4 space-y-6">
+        {(content as VideoInfo[]).map((video, index) => (
+          <Card key={index} className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>{video.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+                <iframe
+                  src={video.video_url}
+                  title={video.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
   // Render content based on its type
   if (typeof content === 'string') {
     return <div className="p-4 prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: content }} />;
@@ -77,6 +108,7 @@ const fetchDescription = (id: string) => fetchWithAuth(`/api/courses/courses/${i
 const fetchOutcomes = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/outcomes`).then(handleApiResponse);
 const fetchPrerequisites = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/prerequisites`).then(handleApiResponse);
 const fetchCurriculum = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/curriculum`).then(handleApiResponse);
+const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/videos`).then(handleApiResponse);
 
 // --- MAIN COMPONENT ---
 const CourseDetail = () => {
@@ -127,11 +159,12 @@ const CourseDetail = () => {
 
             <Card>
               <Tabs defaultValue="description" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 rounded-none rounded-t-lg">
+                <TabsList className="grid w-full grid-cols-5 rounded-none rounded-t-lg">
                   <TabsTrigger value="description"><BookOpen className="mr-2 h-4 w-4"/>Description</TabsTrigger>
                   <TabsTrigger value="outcomes"><Target className="mr-2 h-4 w-4"/>Outcomes</TabsTrigger>
                   <TabsTrigger value="prerequisites"><Check className="mr-2 h-4 w-4"/>Prerequisites</TabsTrigger>
-                  <TabsTrigger value="curriculum"><ListVideo className="mr-2 h-4 w-4"/>Curriculum</TabsTrigger>
+                                    <TabsTrigger value="curriculum"><ListVideo className="mr-2 h-4 w-4"/>Curriculum</TabsTrigger>
+                  <TabsTrigger value="videos"><ListVideo className="mr-2 h-4 w-4"/>Videos</TabsTrigger>
                 </TabsList>
                 <TabsContent value="description">
                   <DynamicTabContent courseId={courseId!} fetcher={fetchDescription} dataKey="description" />
@@ -143,7 +176,10 @@ const CourseDetail = () => {
                   <DynamicTabContent courseId={courseId!} fetcher={fetchPrerequisites} dataKey="prerequisites" />
                 </TabsContent>
                 <TabsContent value="curriculum">
-                  <DynamicTabContent courseId={courseId!} fetcher={fetchCurriculum} dataKey="curriculum" />
+                                    <DynamicTabContent courseId={courseId!} fetcher={fetchCurriculum} dataKey="curriculum" />
+                </TabsContent>
+                <TabsContent value="videos">
+                  <DynamicTabContent courseId={courseId!} fetcher={fetchVideos} dataKey="videos" />
                 </TabsContent>
               </Tabs>
             </Card>
