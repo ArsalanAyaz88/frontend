@@ -38,8 +38,6 @@ interface Option {
 interface Question {
   id: string;
   text: string;
-  question_type: 'single_choice' | 'multiple_choice';
-  points: number;
   options: Option[];
 }
 
@@ -84,20 +82,11 @@ const ViewSubmissions: React.FC = () => {
       const studentAnswer = data.submission.answers.find(a => a.question_id === question.id);
       if (!studentAnswer) continue;
 
-      const correctOptions = question.options.filter(o => o.is_correct).map(o => o.id);
+      const correctOptions = new Set(question.options.filter(o => o.is_correct).map(o => o.id));
+      const studentOptions = new Set(studentAnswer.selected_option_ids || (studentAnswer.selected_option_id ? [studentAnswer.selected_option_id] : []));
 
-      let isCorrect = false;
-      if (question.question_type === 'single_choice') {
-        isCorrect = studentAnswer.selected_option_id !== null && correctOptions.includes(studentAnswer.selected_option_id);
-      } else { // multiple_choice
-        const studentOptions = studentAnswer.selected_option_ids || [];
-        isCorrect = 
-          studentOptions.length === correctOptions.length &&
-          studentOptions.every(optId => correctOptions.includes(optId));
-      }
-
-      if (isCorrect) {
-        score += question.points;
+      if (correctOptions.size > 0 && correctOptions.size === studentOptions.size && [...correctOptions].every(id => studentOptions.has(id))) {
+        score += 1; // Assume 1 point per correct question
       }
     }
     return score;
@@ -108,7 +97,7 @@ const ViewSubmissions: React.FC = () => {
     setLoading(true);
     try {
       // Fetch quiz details to get the title
-      const quizResponse = await fetchWithAuth(`/api/admin/quizzes/quizzes/${quizId}`);
+      const quizResponse = await fetchWithAuth(`/api/admin/quizzes/${quizId}`);
       const quizData = await handleApiResponse(quizResponse);
       setQuizTitle(quizData.title);
 
@@ -253,7 +242,7 @@ const ViewSubmissions: React.FC = () => {
                     const studentAnswer = selectedSubmissionData.submission.answers.find(a => a.question_id === q.id);
                     return (
                       <div key={q.id} className="border-b pb-4">
-                        <p className="font-semibold">{index + 1}. {q.text} ({q.points} points)</p>
+                        <p className="font-semibold">{index + 1}. {q.text}</p>
                         <div className="mt-2 space-y-2">
                           {q.options.map(opt => {
                             const isSelectedByStudent = studentAnswer?.selected_option_id === opt.id || studentAnswer?.selected_option_ids?.includes(opt.id);
@@ -282,7 +271,7 @@ const ViewSubmissions: React.FC = () => {
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <Label htmlFor="score">Score</Label>
-                        <Input id="score" type="number" value={currentGrade} onChange={(e) => setCurrentGrade(e.target.value)} placeholder={`e.g., ${selectedSubmissionData.quiz.questions.reduce((acc, q) => acc + q.points, 0)}`} />
+                        <Input id="score" type="number" value={currentGrade} onChange={(e) => setCurrentGrade(e.target.value)} placeholder={`Auto-score: ${calculateAutoScore(selectedSubmissionData)} / ${selectedSubmissionData.quiz.questions.length}`} />
                     </div>
                     <div>
                         <Label htmlFor="feedback">Feedback</Label>

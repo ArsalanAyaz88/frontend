@@ -23,8 +23,6 @@ interface Option {
 interface Question {
   id: string;
   text: string;
-  question_type: string;
-  points: number;
   options: Option[];
 }
 
@@ -38,8 +36,6 @@ interface QuizDetails {
 // --- Utility Functions ---
 const getNewQuestionTemplate = (): Partial<Question> => ({
   text: '',
-  question_type: 'multiple_choice',
-  points: 1,
   options: [
     { text: '', is_correct: true },
     { text: '', is_correct: false },
@@ -108,7 +104,7 @@ const ManageQuestions: React.FC = () => {
     try {
       const isEditing = !!currentQuestion.id;
       const url = isEditing
-        ? `/api/admin/questions/${currentQuestion.id}`
+        ? `/api/admin/quizzes/questions/${currentQuestion.id}`
         : `/api/admin/quizzes/${quizId}/questions`;
       const method = isEditing ? 'PUT' : 'POST';
 
@@ -133,7 +129,7 @@ const ManageQuestions: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this question?')) return;
 
     try {
-      const response = await fetchWithAuth(`/api/admin/questions/${questionId}`, { method: 'DELETE' });
+      const response = await fetchWithAuth(`/api/admin/quizzes/questions/${questionId}`, { method: 'DELETE' });
       if (response.ok) {
         toast.success('Question deleted successfully.');
         fetchQuizDetails(); // Refresh data
@@ -156,23 +152,8 @@ const ManageQuestions: React.FC = () => {
   const handleCorrectChange = (index: number) => {
     if (!currentQuestion?.options) return;
 
-    let newOptions;
-    if (currentQuestion.question_type === 'multiple_choice') {
-      // Toggle the selected option's correctness
-      newOptions = currentQuestion.options.map((opt, i) => {
-        if (i === index) {
-          return { ...opt, is_correct: !opt.is_correct };
-        }
-        return opt;
-      });
-    } else { // 'single_choice'
-      // Ensure only one option is correct
-      newOptions = currentQuestion.options.map((opt, i) => ({
-        ...opt,
-        is_correct: i === index,
-      }));
-    }
-    
+    const newOptions = [...currentQuestion.options];
+    newOptions[index].is_correct = !newOptions[index].is_correct;
     setCurrentQuestion({ ...currentQuestion, options: newOptions });
   };
 
@@ -228,7 +209,6 @@ const ManageQuestions: React.FC = () => {
                     <CardHeader className="flex flex-row justify-between items-start">
                       <div>
                         <CardTitle className="text-lg">{index + 1}. {q.text}</CardTitle>
-                        <CardDescription>{q.question_type} - {q.points} point(s)</CardDescription>
                       </div>
                       <div className="flex space-x-2">
                         <Button variant="outline" size="sm" onClick={() => openModal(q)}><Edit className="h-4 w-4" /></Button>
@@ -266,49 +246,18 @@ const ManageQuestions: React.FC = () => {
                 <Label htmlFor="question-text">Question Text</Label>
                 <Input id="question-text" value={currentQuestion.text} onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="question-type">Type</Label>
-                  <Select value={currentQuestion.question_type} onValueChange={(value) => setCurrentQuestion({ ...currentQuestion, question_type: value })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                      <SelectItem value="single_choice">Single Choice</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="question-points">Points</Label>
-                  <Input id="question-points" type="number" value={currentQuestion.points} onChange={(e) => setCurrentQuestion({ ...currentQuestion, points: parseInt(e.target.value, 10) || 1 })} />
-                </div>
-              </div>
-              
+
               {/* Options Editor */}
               <div className="space-y-2">
                 <Label>Options</Label>
                 <div className="space-y-3">
-                  {currentQuestion.question_type === 'single_choice' ? (
-                    <RadioGroup
-                      value={currentQuestion.options?.findIndex(o => o.is_correct)?.toString()}
-                      onValueChange={(value) => handleCorrectChange(parseInt(value, 10))}
-                    >
-                      {currentQuestion.options?.map((opt, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <RadioGroupItem value={index.toString()} id={`correct-${index}`} />
-                          <Input placeholder={`Option ${index + 1}`} value={opt.text} onChange={(e) => handleOptionChange(index, e.target.value)} />
-                          <Button variant="ghost" size="icon" onClick={() => removeOption(index)}><X className="h-4 w-4" /></Button>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  ) : ( // multiple_choice
-                    currentQuestion.options?.map((opt, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Checkbox id={`correct-${index}`} checked={opt.is_correct} onCheckedChange={() => handleCorrectChange(index)} />
-                        <Input placeholder={`Option ${index + 1}`} value={opt.text} onChange={(e) => handleOptionChange(index, e.target.value)} />
-                        <Button variant="ghost" size="icon" onClick={() => removeOption(index)}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ))
-                  )}
+                  {currentQuestion.options?.map((opt, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Checkbox id={`correct-${index}`} checked={opt.is_correct} onCheckedChange={() => handleCorrectChange(index)} />
+                      <Input placeholder={`Option ${index + 1}`} value={opt.text} onChange={(e) => handleOptionChange(index, e.target.value)} />
+                      <Button variant="ghost" size="icon" onClick={() => removeOption(index)}><X className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
                 </div>
                 <Button variant="outline" size="sm" className="mt-2" onClick={addOption}>Add Option</Button>
               </div>
