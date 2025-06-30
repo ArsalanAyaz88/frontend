@@ -211,9 +211,16 @@ const AdminCourses = () => {
       ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse.id}`
       : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
 
+    const token = localStorage.getItem('admin_access_token');
+    const headers = new Headers();
+    if (token) {
+        headers.append('Authorization', `Bearer ${token}`);
+    }
+
     const promise = async () => {
-      const response = await fetchWithAuth(url, {
+      const response = await fetch(url, {
         method,
+        headers,
         body: formData,
       });
       return handleApiResponse(response);
