@@ -44,7 +44,7 @@ const ManageQuizzes: React.FC = () => {
     setLoadingQuizzes(true);
     setQuizzes([]);
     try {
-      const response = await fetchWithAuth(`/api/admin/quizzes/courses/${courseId}/quizzes`);
+            const response = await fetchWithAuth(`/api/admin/quizzes?course_id=${courseId}`);
       const data = await handleApiResponse(response);
       setQuizzes(data || []);
     } catch (error) {
