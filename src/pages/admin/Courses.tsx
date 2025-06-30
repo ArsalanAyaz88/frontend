@@ -85,6 +85,7 @@ const AdminCourses = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
   const form = useForm<CourseFormData>({
     resolver: zodResolver(courseFormSchema),
@@ -193,50 +194,76 @@ const AdminCourses = () => {
       }
     });
 
-    if (thumbnail && thumbnail[0]) {
-      formData.append('thumbnail', thumbnail[0]);
+
+    const token = localStorage.getItem('admin_access_token');
+    if (!token) {
+      toast.error('Authentication error. Please log in again.');
+      return;
     }
 
-    const previewVideo = videos.length > 0 ? videos[0] : null;
-    const otherVideos = videos.length > 1 ? videos.slice(1) : [];
+    let thumbnailUrl = selectedCourse?.thumbnail_url || null;
 
-    if(previewVideo) {
-      formData.append('preview_video', JSON.stringify(previewVideo));
+    // 1. Handle thumbnail upload if a new file is provided
+    const thumbnailFile = data.thumbnail?.[0];
+    if (thumbnailFile) {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', thumbnailFile);
+
+      try {
+        toast.info('Uploading thumbnail...');
+        const uploadResponse = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/upload/image', {
+          method: 'POST',
+          body: uploadFormData,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const uploadResult = await handleApiResponse(uploadResponse);
+        thumbnailUrl = uploadResult.url;
+      } catch (error) {
+        toast.error('Failed to upload thumbnail.');
+        console.error("Thumbnail upload error:", error);
+        return; // Stop submission if upload fails
+      }
     }
-    formData.append('videos', JSON.stringify(otherVideos));
-    formData.append('status', 'active');
 
-    const method = selectedCourse ? 'PUT' : 'POST';
+    // 2. Prepare the course data payload
+    const { thumbnail: _thumbnail, ...restOfData } = data;
+    const coursePayload = {
+      ...restOfData,
+      thumbnail_url: thumbnailUrl,
+    };
+    
+    // 3. Submit course data
     const url = selectedCourse
       ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse.id}`
       : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
 
-    const token = localStorage.getItem('admin_access_token');
-    const headers = new Headers();
-    if (token) {
-        headers.append('Authorization', `Bearer ${token}`);
-    }
-
     const promise = async () => {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: formData,
+      const response = await fetchWithAuth(url, {
+        method: selectedCourse ? 'PUT' : 'POST',
+        body: JSON.stringify(coursePayload),
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
       return handleApiResponse(response);
     };
 
     toast.promise(promise(), {
-      loading: `${selectedCourse ? 'Updating' : 'Creating'} course...`,
+      loading: selectedCourse ? 'Updating course...' : 'Creating course...',
       success: () => {
-        fetchCourses();
         setIsDialogOpen(false);
+        setSelectedCourse(null);
+        setThumbnailPreview(null); // Clear preview on success
         form.reset();
-        return `Course ${selectedCourse ? 'updated' : 'created'} successfully.`;
+        fetchCourses();
+        return selectedCourse ? 'Course updated successfully!' : 'Course created successfully!';
       },
       error: (err) => {
-        console.error(err);
-        return `Failed to ${selectedCourse ? 'update' : 'create'} course.`;
+        console.error("Submission error:", err);
+        return `Error: ${err.message || 'An unknown error occurred'}`;
       },
     });
   };
@@ -282,9 +309,30 @@ const AdminCourses = () => {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="thumbnail" className="text-right">Thumbnail</Label>
-                <Input id="thumbnail" type="file" {...form.register('thumbnail')} className="col-span-3" />
+                <Input
+                  id="thumbnail"
+                  type="file"
+                  className="col-span-3"
+                  accept="image/*"
+                  {...form.register('thumbnail')}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setThumbnailPreview(URL.createObjectURL(file));
+                    } else {
+                      setThumbnailPreview(null);
+                    }
+                  }}
+                />
               </div>
-                            {form.formState.errors.thumbnail && <p className="text-red-500 text-sm col-span-4 text-right">{form.formState.errors.thumbnail.message as string}</p>}
+              {thumbnailPreview && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="col-start-2 col-span-3">
+                    <img src={thumbnailPreview} alt="Thumbnail preview" className="mt-2 max-h-40 rounded-lg border" />
+                  </div>
+                </div>
+              )}
+              {form.formState.errors.thumbnail && <p className="text-red-500 text-sm col-span-4 text-right">{form.formState.errors.thumbnail.message as string}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="difficulty_level">Difficulty Level</Label>
