@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 interface Quiz {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   course_id: string;
   course_title: string;
   is_submitted: boolean;
@@ -29,7 +29,7 @@ interface Course {
 
 const Quizzes = () => {
   const [availableQuizzes, setAvailableQuizzes] = useState<Quiz[]>([]);
-  const [completedQuizzes, setCompletedQuizzes] = useState<any[]>([]); // Define interface later
+  const [completedQuizzes, setCompletedQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -50,8 +50,8 @@ const Quizzes = () => {
         const quizPromises = enrolledCourses.map(async (course) => {
           try {
             const quizzesRes = await fetchWithAuth(`/api/student/courses/${course.id}/quizzes`);
-            const courseQuizzes = await handleApiResponse(quizzesRes);
-            return courseQuizzes.map((quiz: any) => ({ ...quiz, course_id: course.id, course_title: course.title }));
+            const courseQuizzes: Omit<Quiz, 'course_title'>[] = await handleApiResponse(quizzesRes);
+            return courseQuizzes.map(quiz => ({ ...quiz, course_title: course.title }));
           } catch (e) {
             console.error(`Failed to fetch quizzes for course ${course.title}`, e);
             return []; // Return empty array if a course's quizzes fail to load
