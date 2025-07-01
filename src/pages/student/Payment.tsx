@@ -263,6 +263,20 @@ const Payment = () => {
     );
   };
   
+  const getStatusColor = (status: Enrollment['status']) => {
+    switch (status) {
+      case 'enrolled':
+      case 'approved':
+        return 'text-green-600';
+      case 'pending':
+        return 'text-yellow-600';
+      case 'rejected':
+        return 'text-red-600';
+      default:
+        return '';
+    }
+  };
+
   const renderEnrollmentList = () => {
     return (
       <Card>
@@ -281,21 +295,11 @@ const Payment = () => {
                   </div>
                   <div className="flex items-center">
                     {enrollment.status !== 'not_enrolled' && (
-                      <span
-                        className={`text-sm font-semibold capitalize mr-4 ${
-                          enrollment.status === 'enrolled' || enrollment.status === 'approved'
-                            ? 'text-green-600'
-                            : ''
-                        } ${
-                          enrollment.status === 'pending' ? 'text-yellow-600' : ''
-                        } ${
-                          enrollment.status === 'rejected' ? 'text-red-600' : ''
-                        }`}
-                      >
+                      <span className={`text-sm font-semibold capitalize mr-4 ${getStatusColor(enrollment.status)}`}>
                         {enrollment.status.replace('_', ' ')}
                       </span>
                     )}
-                                        <Link to={`/student/courses/${enrollment.course_id}`}>
+                    <Link to={`/student/courses/${enrollment.course_id}`}>
                       <Button variant="outline" size="sm">View Details</Button>
                     </Link>
                   </div>
