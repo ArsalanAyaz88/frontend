@@ -142,7 +142,6 @@ const QuizAttempt = () => {
             {quiz.questions.map((q, index) => (
               <div key={q.id}>
                 <p className="font-semibold mb-4">{index + 1}. {q.text}</p>
-                {q.is_multiple_choice && (
                   <RadioGroup onValueChange={(value) => handleAnswerChange(q.id, value)}>
                     {q.options.map(opt => (
                       <div key={opt.id} className="flex items-center space-x-2">
@@ -151,7 +150,6 @@ const QuizAttempt = () => {
                       </div>
                     ))}
                   </RadioGroup>
-                )}
               </div>
             ))}
             <Button onClick={handleSubmit} disabled={submitting} className="w-full mt-8">
