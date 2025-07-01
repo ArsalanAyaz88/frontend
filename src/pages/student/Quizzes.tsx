@@ -46,7 +46,7 @@ const Quizzes = () => {
 
         const quizPromises = enrolledCourses.map(async (course) => {
           try {
-            const quizzesRes = await fetchWithAuth(`/api/student/quizzes/courses/${course.id}/quizzes`);
+            const quizzesRes = await fetchWithAuth(`/api/student/courses/${course.id}/quizzes`);
             const courseQuizzes = await handleApiResponse(quizzesRes);
             return courseQuizzes.map((quiz: any) => ({ ...quiz, course_id: course.id, course_title: course.title }));
           } catch (e) {
