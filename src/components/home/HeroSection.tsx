@@ -16,8 +16,7 @@ const HeroSection = () => {
               </span>
             </h1>
             <p className="text-xl text-muted-foreground leading-relaxed">
-              Join thousands of learners on EduVerse. Access premium video courses, 
-              interactive assignments, and expert guidance to accelerate your career.
+              It is my great honour to INTRODUCE  SABIRY COLOR DOPPPLER ULTRASOUND CENTRE.. we have been conducting a large number of high quality Ultrasound IMAGING FOR THE LAST 23 YEARS. SABIRY COLOR DOPPPLER ULTRASOUND aims at enabling presentation of new results in the sonography information with a focus on execellent resultS. The SABIRY COLOR DOPPPLER ULTRASOUND’s objective is not only to deal with difficult patients but also with proper diagnoses. I would like to take this opportunity to thank all of our colleagues, friends and the Doctors for their support, help, and consistent effort to make SABIRY COLOR DOPPPLER ULTRASOUND a successful center. The experience and efforts of those mentioned above are indeed a great contribution for my success.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link to="/signup">
