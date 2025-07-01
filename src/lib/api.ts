@@ -6,6 +6,10 @@ export class UnauthorizedError extends Error {
   }
 }
 
+interface UserSession {
+  access_token: string;
+}
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
@@ -14,7 +18,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
   // Get the user session from localStorage to retrieve the auth token
   const userSessionString = localStorage.getItem('user');
   if (userSessionString) {
-    const userSession = JSON.parse(userSessionString);
+    const userSession: UserSession = JSON.parse(userSessionString);
     // The access_token must be stored in the user session object upon login
     if (userSession && userSession.access_token) {
       headers.set('Authorization', `Bearer ${userSession.access_token}`);
