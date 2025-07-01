@@ -17,6 +17,8 @@ interface Quiz {
   description: string;
   course_id: string;
   course_title: string;
+  is_submitted: boolean;
+  score: number | null;
 }
 
 interface Course {
@@ -58,8 +60,11 @@ const Quizzes = () => {
         const quizzesByCourse = await Promise.all(quizPromises);
         const allQuizzes = quizzesByCourse.flat();
         
-        // TODO: Separate completed quizzes based on submission status
-        setAvailableQuizzes(allQuizzes);
+        const available = allQuizzes.filter((quiz: Quiz) => !quiz.is_submitted);
+        const completed = allQuizzes.filter((quiz: Quiz) => quiz.is_submitted);
+
+        setAvailableQuizzes(available);
+        setCompletedQuizzes(completed);
 
       } catch (err: any) {
         if (err instanceof UnauthorizedError) {
@@ -210,7 +215,11 @@ const Quizzes = () => {
           </TabsContent>
 
           <TabsContent value="completed" className="space-y-4">
-            <p className="text-center text-muted-foreground py-8">You have not completed any quizzes yet.</p>
+            {completedQuizzes.length > 0 ? (
+              completedQuizzes.map(renderQuizCard)
+            ) : (
+              <p className="text-center text-muted-foreground py-8">You have not completed any quizzes yet.</p>
+            )}
           </TabsContent>
         </Tabs>
       </div>
