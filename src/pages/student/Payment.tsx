@@ -280,13 +280,21 @@ const Payment = () => {
                     <span className="font-medium">{enrollment.course_title}</span>
                   </div>
                   <div className="flex items-center">
-                    <span className={`text-sm font-semibold capitalize mr-4 
-                      ${enrollment.status === 'enrolled' ? 'text-green-600' : ''}
-                      ${enrollment.status === 'pending' ? 'text-yellow-600' : ''}
-                      ${enrollment.status === 'rejected' ? 'text-red-600' : ''}
-                    `}>
-                      {enrollment.status.replace('_', ' ')}
-                    </span>
+                    {enrollment.status !== 'not_enrolled' && (
+                      <span
+                        className={`text-sm font-semibold capitalize mr-4 ${
+                          enrollment.status === 'enrolled' || enrollment.status === 'approved'
+                            ? 'text-green-600'
+                            : ''
+                        } ${
+                          enrollment.status === 'pending' ? 'text-yellow-600' : ''
+                        } ${
+                          enrollment.status === 'rejected' ? 'text-red-600' : ''
+                        }`}
+                      >
+                        {enrollment.status.replace('_', ' ')}
+                      </span>
+                    )}
                                         <Link to={`/student/courses/${enrollment.course_id}`}>
                       <Button variant="outline" size="sm">View Details</Button>
                     </Link>
