@@ -19,7 +19,6 @@ interface Quiz {
   course_title: string;
   is_submitted: boolean;
   score: number | null;
-  submission_id?: string;
   total_questions: number;
 }
 
