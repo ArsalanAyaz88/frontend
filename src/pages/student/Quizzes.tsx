@@ -19,6 +19,8 @@ interface Quiz {
   course_title: string;
   is_submitted: boolean;
   score: number | null;
+  submission_id?: string;
+  total_questions: number;
 }
 
 interface Course {
@@ -82,24 +84,39 @@ const Quizzes = () => {
     fetchQuizzes();
   }, [navigate]);
 
-  const renderQuizCard = (quiz: Quiz) => (
-    <Card key={quiz.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 space-y-4">
-          <div className="flex items-center space-x-3">
-            <h3 className="text-xl font-semibold">{quiz.title}</h3>
+  const renderQuizCard = (quiz: Quiz) => {
+    const isCompleted = quiz.is_submitted;
+
+    return (
+      <Card key={quiz.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-xl font-semibold">{quiz.title}</h3>
+            </div>
+            <p className="text-muted-foreground">{quiz.course_title}</p>
+            <p className="text-foreground">{quiz.description}</p>
           </div>
-          <p className="text-muted-foreground">{quiz.course_title}</p>
-          <p className="text-foreground">{quiz.description}</p>
+          <div className="flex flex-col items-end space-y-2 text-right">
+            {isCompleted ? (
+              <>
+                <p className="text-lg font-bold">
+                  Score: {quiz.score}/{quiz.total_questions}
+                </p>
+                <Link to={`/student/quizzes/${quiz.course_id}/${quiz.id}/results/${quiz.submission_id}`} className="w-full mt-2 inline-block">
+                  <Button variant="outline" size="sm"><Trophy className="mr-2 h-4 w-4"/>View Result</Button>
+                </Link>
+              </>
+            ) : (
+              <Link to={`/student/quizzes/${quiz.course_id}/${quiz.id}/attempt`} className="w-full">
+                <Button><Play className="mr-2 h-4 w-4"/>Start Quiz</Button>
+              </Link>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col items-end space-y-2">
-          <Link to={`/student/quizzes/${quiz.course_id}/${quiz.id}/attempt`} className="w-full">
-            <Button><Play className="mr-2 h-4 w-4"/>Start Quiz</Button>
-          </Link>
-        </div>
-      </div>
-    </Card>
-  );
+      </Card>
+    );
+  };
 
   if (loading) {
     return (
