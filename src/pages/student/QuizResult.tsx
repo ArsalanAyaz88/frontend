@@ -40,7 +40,7 @@ const QuizResult = () => {
       setLoading(true);
       try {
         const res = await fetchWithAuth(`/api/student/courses/${courseId}/quizzes/${quizId}/results/${submissionId}`);
-        const data = await handleApiResponse(res);
+        const data: QuizResultDetails = await handleApiResponse(res);
         setResult(data);
       } catch (err) {
         if (err instanceof UnauthorizedError) {
