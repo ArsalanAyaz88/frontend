@@ -92,7 +92,7 @@ const QuizAttempt = () => {
       const result = await handleApiResponse(res);
       toast.success('Quiz submitted successfully!');
       // Navigate to results page with submission ID
-      navigate(`/student/quizzes/${courseId}/${quizId}/results/${result.id}`);
+      navigate(`/student/quizzes/${courseId}/${quizId}/results/${result.submission_id}`);
     } catch (err: any) {
       if (err instanceof UnauthorizedError) {
         toast.error('Session expired. Please log in again.');
