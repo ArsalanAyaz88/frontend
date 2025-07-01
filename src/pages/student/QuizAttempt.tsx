@@ -50,7 +50,7 @@ const QuizAttempt = () => {
       if (!courseId || !quizId) return;
       setLoading(true);
       try {
-        const res = await fetchWithAuth(`/api/courses/${courseId}/quizzes/${quizId}`);
+        const res = await fetchWithAuth(`/api/student/quizzes/courses/${courseId}/quizzes/${quizId}`);
         const data = await handleApiResponse(res);
         setQuiz(data);
       } catch (err: any) {
