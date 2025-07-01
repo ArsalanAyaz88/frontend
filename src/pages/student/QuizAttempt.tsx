@@ -35,6 +35,14 @@ interface Answer {
   selected_option_id: string;
 }
 
+interface SubmissionResult {
+  id: string;
+  student_id: string;
+  submitted_at: string; 
+  score: number | null;
+  is_graded: boolean;
+}
+
 const QuizAttempt = () => {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
   const navigate = useNavigate();
@@ -89,7 +97,7 @@ const QuizAttempt = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers }),
       });
-      const result = await handleApiResponse(res);
+      const result: SubmissionResult = await handleApiResponse(res);
       toast.success('Quiz submitted successfully!');
       // Navigate to results page with submission ID
       navigate(`/student/quizzes/${courseId}/${quizId}/results/${result.id}`);
