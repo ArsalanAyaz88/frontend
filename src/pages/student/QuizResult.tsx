@@ -42,13 +42,17 @@ const QuizResult = () => {
         const res = await fetchWithAuth(`/api/student/courses/${courseId}/quizzes/${quizId}/results/${submissionId}`);
         const data = await handleApiResponse(res);
         setResult(data);
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof UnauthorizedError) {
           toast.error('Session expired. Please log in again.');
           navigate('/login');
         } else {
           setError('Failed to load quiz results.');
-          toast.error(err.message || 'An unexpected error occurred.');
+          if (err instanceof Error) {
+            toast.error(err.message);
+          } else {
+            toast.error('An unexpected error occurred.');
+          }
         }
       } finally {
         setLoading(false);
