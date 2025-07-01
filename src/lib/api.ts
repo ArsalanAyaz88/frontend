@@ -6,7 +6,7 @@ export class UnauthorizedError extends Error {
   }
 }
 
-const API_BASE_URL = ((import.meta as any).env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const headers = new Headers(options.headers);
@@ -34,8 +34,15 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
 
 export const handleApiResponse = async (response: Response) => {
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
-        throw new Error(errorData.message || `An unknown error occurred`);
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+            // Assume error response has a standard shape
+            const errorData: { message?: string, detail?: string } = await response.json();
+            errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+            // Response body is not JSON or is empty, use the status-based message.
+        }
+        throw new Error(errorMessage);
     }
     return response.json();
 };
