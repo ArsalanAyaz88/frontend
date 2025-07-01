@@ -24,7 +24,20 @@ interface Enrollment {
   id: number;
   course_id: number;
   course_title: string;
-  status: 'pending' | 'enrolled' | 'rejected' | 'not_enrolled';
+  status: 'pending' | 'enrolled' | 'rejected' | 'not_enrolled' | 'approved';
+}
+
+interface Course {
+  id: number;
+  title: string;
+}
+
+interface StatusResponse {
+  status: 'pending' | 'enrolled' | 'rejected' | 'not_enrolled' | 'approved';
+}
+
+interface SubmissionResponse {
+  detail: string;
 }
 
 const Payment = () => {
@@ -47,15 +60,15 @@ const Payment = () => {
       try {
         if (courseId) {
           // Fetch purchase info first, as it's required to render the form.
-                    const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
-          const purchaseData = await handleApiResponse(purchaseInfoRes);
+          const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
+          const purchaseData = await handleApiResponse<PurchaseInfo>(purchaseInfoRes);
           setPurchaseInfo(purchaseData);
 
           // Then, fetch the enrollment status, which might not exist yet.
           try {
-                        const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
+            const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
             if (statusRes.ok) {
-              const statusData = await handleApiResponse(statusRes);
+              const statusData = await handleApiResponse<StatusResponse>(statusRes);
               setEnrollmentStatus(statusData.status);
             } else {
               // A 404 or other non-ok status means not enrolled or no status yet.
@@ -63,27 +76,26 @@ const Payment = () => {
             }
           } catch (statusError) {
             // If fetching status fails, we assume the user is not enrolled and can proceed.
-            // This prevents the page from crashing if the status endpoint returns an error.
-            console.warn("Could not fetch enrollment status, assuming not enrolled:", statusError);
+            if (statusError instanceof Error) {
+              console.warn(`Could not fetch enrollment status: ${statusError.message}`);
+            } else {
+              console.warn("Could not fetch enrollment status, assuming not enrolled:", statusError);
+            }
             setEnrollmentStatus(null);
           }
         } else {
           const coursesRes = await fetchWithAuth(`/api/courses/my-courses`);
-          const coursesData = await handleApiResponse(coursesRes);
+          const coursesData = await handleApiResponse<Course[]>(coursesRes);
 
           if (Array.isArray(coursesData) && coursesData.length > 0) {
             const enrollmentsWithStatus = await Promise.all(
-              coursesData.map(async (course: any) => {
+              coursesData.map(async (course: Course): Promise<Enrollment> => {
                 try {
-                                    const statusRes = await fetchWithAuth(`/api/enrollments/${course.id}/status`);
-                  let status: 'pending' | 'rejected' | 'enrolled' | 'not_enrolled' = 'not_enrolled';
+                  const statusRes = await fetchWithAuth(`/api/enrollments/${course.id}/status`);
+                  let status: Enrollment['status'] = 'not_enrolled';
                   if (statusRes.ok) {
-                    const statusData = await handleApiResponse(statusRes);
-                    if (statusData.status === 'approved') {
-                      status = 'enrolled';
-                    } else {
-                      status = statusData.status;
-                    }
+                    const statusData = await handleApiResponse<StatusResponse>(statusRes);
+                    status = statusData.status;
                   } // 404 is handled as 'not_enrolled'
 
                   return {
@@ -94,7 +106,11 @@ const Payment = () => {
                   };
                 } catch (e) {
                   if (e instanceof UnauthorizedError) throw e;
-                  console.error(`Failed to fetch status for course ${course.id}`, e);
+                  if (e instanceof Error) {
+                    console.error(`Failed to fetch status for course ${course.id}: ${e.message}`);
+                  } else {
+                    console.error(`Failed to fetch status for course ${course.id}:`, e);
+                  }
                   return {
                     id: course.id,
                     course_title: course.title,
@@ -104,18 +120,22 @@ const Payment = () => {
                 }
               })
             );
-            setEnrollments(enrollmentsWithStatus as Enrollment[]);
+            setEnrollments(enrollmentsWithStatus);
           } else {
             setEnrollments([]);
           }
         }
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof UnauthorizedError) {
           toast.error('Session expired. Please log in again.');
           navigate('/auth/login');
+        } else if (err instanceof Error) {
+          setError(err.message);
+          toast.error(err.message);
         } else {
-          setError(err.message || 'An unexpected error occurred.');
-          toast.error(err.message || 'An unexpected error occurred.');
+          const errorMessage = 'An unexpected error occurred.';
+          setError(errorMessage);
+          toast.error(errorMessage);
         }
       } finally {
         setLoading(false);
@@ -162,25 +182,17 @@ const Payment = () => {
         body: formData,
       });
       
-      const result = await handleApiResponse(res);
+      const result = await handleApiResponse<SubmissionResponse>(res);
       toast.success(result.detail || 'Payment proof submitted successfully!');
       // Update UI to show pending status
       setEnrollmentStatus('pending');
       setUploadedFile(null);
-    } catch (err: any) {
-      let errorMessage = 'Failed to submit payment proof.';
-      // Attempt to parse detailed validation errors from FastAPI
-      if (err.response && err.response.detail) {
-        if (Array.isArray(err.response.detail)) {
-          errorMessage = err.response.detail.map((d: any) => `${d.loc.join('.')} - ${d.msg}`).join('; ');
-        } else {
-          errorMessage = err.response.detail;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
+    } catch (err) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error('Failed to submit payment proof.');
       }
-      console.error('Payment Submission Error Response:', JSON.stringify(err.response, null, 2));
-      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

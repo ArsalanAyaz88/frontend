@@ -36,7 +36,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
   return response;
 };
 
-export const handleApiResponse = async (response: Response) => {
+export const handleApiResponse = async <T>(response: Response): Promise<T> => {
     if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`;
         try {
