@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Edit, Save, Mail, BookOpen, Clock, Trophy, Calendar as CalendarIcon, Loader2 } from "lucide-react";
+
+import { Camera, Edit, Save, Mail, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchWithAuth, UnauthorizedError } from "@/lib/api";
@@ -132,7 +132,7 @@ const Profile = () => {
     formData.append('file', file);
 
     try {
-      const uploadResponse = await fetchWithAuth('/api/profile/avatar', {
+      const uploadResponse = await fetchWithAuth('/api/profile/profile/avatar', {
         method: 'POST',
         body: formData,
       });
