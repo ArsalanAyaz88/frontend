@@ -47,13 +47,13 @@ const Payment = () => {
       try {
         if (courseId) {
           // Fetch purchase info first, as it's required to render the form.
-          const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/api/enrollments/courses/${courseId}/purchase-info`);
+                    const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
           const purchaseData = await handleApiResponse(purchaseInfoRes);
           setPurchaseInfo(purchaseData);
 
           // Then, fetch the enrollment status, which might not exist yet.
           try {
-            const statusRes = await fetchWithAuth(`/api/enrollments/api/enrollments/${courseId}/status`);
+                        const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
             if (statusRes.ok) {
               const statusData = await handleApiResponse(statusRes);
               setEnrollmentStatus(statusData.status);
@@ -75,7 +75,7 @@ const Payment = () => {
             const enrollmentsWithStatus = await Promise.all(
               coursesData.map(async (course: any) => {
                 try {
-                  const statusRes = await fetchWithAuth(`/api/enrollments/api/enrollments/${course.id}/status`);
+                                    const statusRes = await fetchWithAuth(`/api/enrollments/${course.id}/status`);
                   let status: 'pending' | 'rejected' | 'enrolled' | 'not_enrolled' = 'not_enrolled';
                   if (statusRes.ok) {
                     const statusData = await handleApiResponse(statusRes);
@@ -153,16 +153,16 @@ const Payment = () => {
     const formData = new FormData();
     // The backend expects the file under the field name 'file'.
     formData.append('file', uploadedFile);
-    formData.append('coure_id', courseId);
+    formData.append('course_id', courseId);
 
     try {
       // The endpoint uses the courseId from the URL.
-      const response = await fetchWithAuth(`/api/enrollments/api/enrollments/${courseId}/payment-proof`, {
+          const res = await fetchWithAuth(`/api/enrollments/${courseId}/upload-proof`, {
         method: 'POST',
         body: formData,
       });
       
-      const result = await handleApiResponse(response);
+      const result = await handleApiResponse(res);
       toast.success(result.detail || 'Payment proof submitted successfully!');
       // Update UI to show pending status
       setEnrollmentStatus('pending');
@@ -275,7 +275,7 @@ const Payment = () => {
                     `}>
                       {enrollment.status.replace('_', ' ')}
                     </span>
-                    <Link to={`/student/payment/${enrollment.course_id}`}>
+                                        <Link to={`/student/courses/${enrollment.course_id}`}>
                       <Button variant="outline" size="sm">View Details</Button>
                     </Link>
                   </div>
