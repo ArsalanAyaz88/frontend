@@ -49,7 +49,7 @@ const HeroSection = () => {
           <div className="relative">
             <div className="glass-card p-8 rounded-2xl">
               <img 
-                src="https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=800&q=80"
+                src="https://res.cloudinary.com/dcmtpky4i/image/upload/v1751401471/WhatsApp_Image_2025-05-15_at_19.31.00_0a0a9434_vmsfvc.jpg"
                 alt="Student learning online"
                 className="rounded-xl w-full"
               />
