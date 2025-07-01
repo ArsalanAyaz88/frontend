@@ -52,7 +52,7 @@ const CEOSection = () => {
                 <div className="relative">
                   <div className="glass-card p-4 rounded-2xl">
                     <img 
-                      src="https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=600&q=80"
+                      src="https://drive.google.com/file/d/16Hh7F7x6GTmvL7wkb8BJobcoAttKZi8G/view?usp=drive_link"
                       alt="CEO Alexandra Rivera"
                       className="rounded-xl w-full"
                     />
