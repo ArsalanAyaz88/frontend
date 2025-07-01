@@ -3,8 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, CheckCircle, AlertCircle, Play, Trophy, Target, Loader2 } from "lucide-react";
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
@@ -131,30 +129,15 @@ const Quizzes = () => {
       <DashboardLayout userType="student">
         <div className="flex items-center justify-center h-[calc(100vh-80px)]">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-destructive mb-2">An Error Occurred</h2>
-            <p className="text-muted-foreground">{error}</p>
-            <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+            <AlertCircle className="mx-auto h-16 w-16 text-red-500" />
+            <h2 className="mt-4 text-2xl font-bold">Oops! Something went wrong.</h2>
+            <p className="mt-2 text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()} className="mt-6">Try Again</Button>
           </div>
         </div>
       </DashboardLayout>
     );
   }
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'Beginner': return 'bg-green-500/20 text-green-500';
-      case 'Intermediate': return 'bg-yellow-500/20 text-yellow-500';
-      case 'Advanced': return 'bg-red-500/20 text-red-500';
-      default: return 'bg-gray-500/20 text-gray-500';
-    }
-  };
-
-  const getScoreColor = (score: number, maxScore: number) => {
-    const percentage = (score / maxScore) * 100;
-    if (percentage >= 80) return 'text-green-500';
-    if (percentage >= 60) return 'text-yellow-500';
-    return 'text-red-500';
-  };
 
   return (
     <DashboardLayout userType="student">
