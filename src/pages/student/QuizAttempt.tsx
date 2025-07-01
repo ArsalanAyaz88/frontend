@@ -26,7 +26,7 @@ interface QuizDetails {
   id: string;
   course_id: string;
   title: string;
-  description: string;
+  description?: string;
   questions: QuizQuestion[];
 }
 
@@ -61,13 +61,17 @@ const QuizAttempt = () => {
         const res = await fetchWithAuth(`/api/student/quizzes/courses/${courseId}/quizzes/${quizId}`);
         const data = await handleApiResponse(res);
         setQuiz(data);
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof UnauthorizedError) {
           toast.error('Session expired. Please log in again.');
           navigate('/login');
         } else {
           setError('Failed to load quiz details.');
-          toast.error(err.message || 'An unexpected error occurred.');
+          if (err instanceof Error) {
+            toast.error(err.message);
+          } else {
+            toast.error('An unexpected error occurred.');
+          }
         }
       } finally {
         setLoading(false);
@@ -101,12 +105,16 @@ const QuizAttempt = () => {
       toast.success('Quiz submitted successfully!');
       // Navigate to results page with submission ID
       navigate(`/student/quizzes/${courseId}/${quizId}/results/${result.id}`);
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof UnauthorizedError) {
         toast.error('Session expired. Please log in again.');
         navigate('/login');
       } else {
-        toast.error(err.message || 'Failed to submit quiz.');
+        if (err instanceof Error) {
+          toast.error(err.message);
+        } else {
+          toast.error('Failed to submit quiz.');
+        }
       }
     } finally {
       setSubmitting(false);
