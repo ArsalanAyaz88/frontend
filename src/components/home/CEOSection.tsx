@@ -20,7 +20,7 @@ const CEOSection = () => {
               <div className="order-2 lg:order-1">
                 <Quote className="h-12 w-12 text-primary mb-6" />
                 <blockquote className="text-lg leading-relaxed mb-6">
-                  "Education is the most powerful tool we can use to change the world. At Sabri Ultrasound Institute, 
+                  "Education is the most powerful tool we can use to change the world. At EduVerse, 
                   we're committed to making quality education accessible to everyone, everywhere. 
                   Our mission is to break down barriers and create opportunities for lifelong learning."
                 </blockquote>

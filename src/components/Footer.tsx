@@ -11,7 +11,7 @@ const Footer = () => {
             <Link to="/" className="flex items-center space-x-2">
               <GraduationCap className="h-8 w-8 text-primary" />
               <span className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
-                Sabri Ultrasound Institute
+                EduVerse
               </span>
             </Link>
             <p className="text-muted-foreground">
@@ -65,7 +65,7 @@ const Footer = () => {
         </div>
         
         <div className="border-t border-border/50 mt-12 pt-8 text-center text-muted-foreground">
-          <p>&copy; 2024 Sabri Ultrasound Institute. All rights reserved. Made with ❤️ for learners worldwide.</p>
+          <p>&copy; 2024 EduVerse. All rights reserved. Made with ❤️ for learners worldwide.</p>
         </div>
       </div>
     </footer>
