@@ -120,10 +120,7 @@ const Payment = () => {
                 }
               })
             );
-            const filteredEnrollments = enrollmentsWithStatus.filter(
-              (enrollment) => enrollment.status !== 'not_enrolled'
-            );
-            setEnrollments(filteredEnrollments);
+            setEnrollments(enrollmentsWithStatus);
           } else {
             setEnrollments([]);
           }
