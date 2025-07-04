@@ -90,7 +90,7 @@ const Dashboard = () => {
   const handleGetCertificate = async (courseId: string) => {
     setIsCertificateLoading(prev => ({ ...prev, [courseId]: true }));
     try {
-        const response = await fetchWithAuth(`/api/courses/get-certificate/${courseId}`);
+        const response = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate`);
         const data = await response.json();
         if (response.ok) {
             window.open(data.certificate_url, '_blank');

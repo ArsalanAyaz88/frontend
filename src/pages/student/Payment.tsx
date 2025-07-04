@@ -60,7 +60,7 @@ const Payment = () => {
       try {
         if (courseId) {
           // Fetch purchase info first, as it's required to render the form.
-          const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
+          const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/api/enrollments/courses${courseId}/purchase-info`);
           const purchaseData = await handleApiResponse<PurchaseInfo>(purchaseInfoRes);
           setPurchaseInfo(purchaseData);
 
