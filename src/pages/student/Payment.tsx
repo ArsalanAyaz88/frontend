@@ -177,7 +177,7 @@ const Payment = () => {
 
     try {
       // The endpoint uses the courseId from the URL.
-          const res = await fetchWithAuth(`/api/enrollments/${courseId}/upload-proof`, {
+          const res = await fetchWithAuth(`/api/enrollments/api/enrollments/${courseId}/payment-proof`, {
         method: 'POST',
         body: formData,
       });
