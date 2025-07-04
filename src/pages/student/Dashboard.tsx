@@ -92,8 +92,19 @@ const Dashboard = () => {
     try {
         const response = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate`);
         const data = await response.json();
-        if (response.ok) {
-            window.open(data.certificate_url, '_blank');
+        if (response.ok && data.certificate_url) {
+            // Fetch the certificate file as a blob
+            const fileResponse = await fetch(data.certificate_url);
+            const blob = await fileResponse.blob();
+            // Create a temporary anchor to trigger download
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `certificate-${courseId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
             toast({ title: 'Success', description: 'Certificate is being downloaded!' });
         } else {
             throw new Error(data.detail || 'Failed to get certificate');
