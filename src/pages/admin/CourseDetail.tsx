@@ -156,7 +156,7 @@ const AdminCourseDetail = () => {
                       <TableCell>
                         <div className="aspect-w-16 aspect-h-9 w-40 max-w-xs">
                           <iframe
-                            src={`https://www.youtube.com/embed/${extractYouTubeId(video.youtube_url)}`}
+                            src={`https://www.youtube.com/embed/${extractYouTubeId(video.youtube_url)}?modestbranding=1&rel=0&showinfo=0`}
                             title={video.title}
                             frameBorder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
