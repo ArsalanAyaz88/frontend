@@ -31,6 +31,12 @@ interface CourseDetail {
   videos: Video[];
 }
 
+// Helper function to extract YouTube video ID
+function extractYouTubeId(url: string) {
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w-]{11})/);
+  return match ? match[1] : '';
+}
+
 const AdminCourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [course, setCourse] = useState<CourseDetail | null>(null);
@@ -148,9 +154,16 @@ const AdminCourseDetail = () => {
                       <TableCell className="font-medium">{video.title}</TableCell>
                       <TableCell>{video.description}</TableCell>
                       <TableCell>
-                        <a href={video.youtube_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                          Watch
-                        </a>
+                        <div className="aspect-w-16 aspect-h-9 w-40 max-w-xs">
+                          <iframe
+                            src={`https://www.youtube.com/embed/${extractYouTubeId(video.youtube_url)}`}
+                            title={video.title}
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="rounded"
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
