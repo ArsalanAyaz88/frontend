@@ -154,12 +154,14 @@ const AdminCourseDetail = () => {
                       <TableCell className="font-medium">{video.title}</TableCell>
                       <TableCell>{video.description}</TableCell>
                       <TableCell>
+                        <div className="mb-2 font-semibold text-sm text-foreground">{video.title}</div>
                         <div className="aspect-w-16 aspect-h-9 w-40 max-w-xs">
                           <iframe
-                            src={`https://www.youtube.com/embed/${extractYouTubeId(video.youtube_url)}?modestbranding=1&rel=0&showinfo=0`}
-                            title={video.title}
+                            src={`https://www.youtube-nocookie.com/embed/${extractYouTubeId(video.youtube_url)}?controls=1&modestbranding=1&rel=0&enablejsapi=1`}
+                            width="720"
+                            height="405"
                             frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allow="autoplay; encrypted-media"
                             allowFullScreen
                             className="rounded"
                           />
