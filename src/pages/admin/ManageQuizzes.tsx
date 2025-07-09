@@ -118,6 +118,7 @@ const ManageQuizzes: React.FC = () => {
       if (selectedCourseId) {
         fetchQuizzesByCourse(selectedCourseId);
       }
+      window.dispatchEvent(new CustomEvent('quiz-updated')); // Notify other components
     } catch (error) {
       toast.error('Failed to delete quiz.');
     }
@@ -139,6 +140,10 @@ const ManageQuizzes: React.FC = () => {
       await handleApiResponse(response);
       toast.success(`Quiz ${currentQuiz.id ? 'updated' : 'created'} successfully!`);
       setIsModalOpen(false);
+      if (selectedCourseId) {
+        fetchQuizzesByCourse(selectedCourseId);
+      }
+      window.dispatchEvent(new CustomEvent('quiz-updated'));
     } catch (error) {
       toast.error(`Failed to ${currentQuiz.id ? 'update' : 'create'} quiz.`);
     }
