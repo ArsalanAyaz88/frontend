@@ -16,6 +16,16 @@ import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // --- Type Definitions ---
+interface Option {
+  text: string;
+  is_correct: boolean;
+}
+
+interface Question {
+  text: string;
+  options: Option[];
+}
+
 interface Course {
   id: string;
   title: string;
@@ -27,6 +37,7 @@ interface Quiz {
   description: string;
   course_id: string;
   due_date: string | null;
+  questions?: Question[]; // Add questions to the quiz interface
 }
 
 const ManageQuizzes: React.FC = () => {
@@ -46,7 +57,7 @@ const ManageQuizzes: React.FC = () => {
     try {
             const response = await fetchWithAuth(`/api/admin/quizzes?course_id=${courseId}`);
       const data = await handleApiResponse(response);
-      setQuizzes(data || []);
+      setQuizzes(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error('Failed to fetch quizzes for the selected course.');
     } finally {
@@ -59,7 +70,7 @@ const ManageQuizzes: React.FC = () => {
     try {
       const response = await fetchWithAuth('/api/admin/courses');
       const data = await handleApiResponse(response);
-      setCourses(data || []);
+      setCourses(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error('Failed to fetch courses.');
     } finally {
@@ -118,25 +129,50 @@ const ManageQuizzes: React.FC = () => {
       return;
     }
 
+    // Validation for new quizzes
+    if (!currentQuiz.id) {
+      if (!currentQuiz.questions || currentQuiz.questions.length === 0) {
+        toast.error('A new quiz must have at least one question.');
+        return;
+      }
+      for (const q of currentQuiz.questions) {
+        if (q.options.length < 2) {
+          toast.error(`Question "${q.text}" must have at least two options.`);
+          return;
+        }
+        if (!q.options.some(o => o.is_correct)) {
+          toast.error(`Question "${q.text}" must have at least one correct option.`);
+          return;
+        }
+      }
+    }
+
     const isEditing = !!currentQuiz.id;
     const url = isEditing
       ? `/api/admin/quizzes/${currentQuiz.id}`
-      : `/api/admin/quizzes/courses/${currentQuiz.course_id}/quizzes`;
+      : `/api/admin/quizzes`;
     const method = isEditing ? 'PUT' : 'POST';
+
+    // For new quizzes, the body should match the QuizCreate schema
+    const body = isEditing ? {
+      title: currentQuiz.title,
+      description: currentQuiz.description,
+      due_date: currentQuiz.due_date
+    } : {
+      ...currentQuiz,
+      course_id: selectedCourseId
+    };
 
     try {
       const response = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: currentQuiz.title,
-          description: currentQuiz.description,
-          due_date: currentQuiz.due_date || null,
-        }),
+        body: JSON.stringify(body),
       });
       await handleApiResponse(response);
       toast.success(`Quiz ${isEditing ? 'updated' : 'created'} successfully!`);
       setIsModalOpen(false);
+      setCurrentQuiz(null);
       if (selectedCourseId) {
         fetchQuizzesByCourse(selectedCourseId);
       }
@@ -234,7 +270,7 @@ const ManageQuizzes: React.FC = () => {
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{currentQuiz?.id ? 'Edit Quiz' : 'Add Quiz'}</DialogTitle>
+              <DialogTitle>{currentQuiz?.id ? 'Edit Quiz Details' : 'Add New Quiz'}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
@@ -262,10 +298,79 @@ const ManageQuizzes: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="due_date" className="text-right">Due Date</Label>
                 <Input id="due_date" type="datetime-local" value={currentQuiz?.due_date ? format(new Date(currentQuiz.due_date), "yyyy-MM-dd'T'HH:mm") : ''} onChange={(e) => setCurrentQuiz({ ...currentQuiz!, due_date: e.target.value ? new Date(e.target.value).toISOString() : null })} className="col-span-3" />
               </div>
+
+              {/* --- Questions Section (only for new quizzes) --- */}
+              {!currentQuiz?.id && (
+                <div className="col-span-4 pt-4 border-t">
+                  <h4 className="text-lg font-semibold mb-2">Questions</h4>
+                  {currentQuiz?.questions?.map((q, qIndex) => (
+                    <div key={qIndex} className="p-3 border rounded-md mb-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <Label htmlFor={`q-text-${qIndex}`}>{`Question ${qIndex + 1}`}</Label>
+                        <Button variant="destructive" size="sm" onClick={() => {
+                          const newQuestions = [...currentQuiz.questions!];
+                          newQuestions.splice(qIndex, 1);
+                          setCurrentQuiz({ ...currentQuiz!, questions: newQuestions });
+                        }}>Remove</Button>
+                      </div>
+                      <Textarea
+                        id={`q-text-${qIndex}`}
+                        placeholder="Enter question text..."
+                        value={q.text}
+                        onChange={(e) => {
+                          const newQuestions = [...currentQuiz.questions!];
+                          newQuestions[qIndex].text = e.target.value;
+                          setCurrentQuiz({ ...currentQuiz!, questions: newQuestions });
+                        }}
+                      />
+                      <div className="mt-2 pl-4">
+                        {q.options.map((opt, oIndex) => (
+                          <div key={oIndex} className="flex items-center gap-2 mb-1">
+                            <Input
+                              placeholder={`Option ${oIndex + 1}`}
+                              value={opt.text}
+                              onChange={(e) => {
+                                const newQuestions = [...currentQuiz.questions!];
+                                newQuestions[qIndex].options[oIndex].text = e.target.value;
+                                setCurrentQuiz({ ...currentQuiz!, questions: newQuestions });
+                              }}
+                            />
+                            <div className="flex items-center gap-1">
+                              <input type="checkbox" id={`q-${qIndex}-opt-${oIndex}`} checked={opt.is_correct} onChange={(e) => {
+                                const newQuestions = [...currentQuiz.questions!];
+                                newQuestions[qIndex].options[oIndex].is_correct = e.target.checked;
+                                setCurrentQuiz({ ...currentQuiz!, questions: newQuestions });
+                              }} />
+                              <Label htmlFor={`q-${qIndex}-opt-${oIndex}`}>Correct</Label>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => {
+                               const newQuestions = [...currentQuiz.questions!];
+                               newQuestions[qIndex].options.splice(oIndex, 1);
+                               setCurrentQuiz({ ...currentQuiz!, questions: newQuestions });
+                            }}>X</Button>
+                          </div>
+                        ))}
+                        <Button variant="secondary" size="sm" className="mt-1" onClick={() => {
+                          const newQuestions = [...currentQuiz.questions!];
+                          newQuestions[qIndex].options.push({ text: '', is_correct: false });
+                          setCurrentQuiz({ ...currentQuiz!, questions: newQuestions });
+                        }}>Add Option</Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button onClick={() => {
+                    if (!currentQuiz) return;
+                    const newQuestions = [...(currentQuiz.questions || [])];
+                    newQuestions.push({ text: '', options: [{ text: '', is_correct: false }, { text: '', is_correct: false }] });
+                    setCurrentQuiz({ ...currentQuiz, questions: newQuestions });
+                  }}>Add Question</Button>
+                </div>
+              )}
+
             </div>
             <DialogFooter>
               <DialogClose asChild>
