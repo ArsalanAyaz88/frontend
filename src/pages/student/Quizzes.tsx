@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
@@ -32,58 +32,73 @@ const Quizzes = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchQuizzes = async () => {
-      setLoading(true);
-      try {
-        const coursesRes = await fetchWithAuth('/api/courses/my-courses');
-        const enrolledCourses: Course[] = await handleApiResponse(coursesRes);
+  const fetchQuizzes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const coursesRes = await fetchWithAuth('/api/courses/my-courses');
+      const enrolledCourses: Course[] = await handleApiResponse(coursesRes);
 
-        if (enrolledCourses.length === 0) {
-          setAvailableQuizzes([]);
-          setLoading(false);
-          return;
-        }
-
-        const quizPromises = enrolledCourses.map(async (course) => {
-          try {
-            const quizzesRes = await fetchWithAuth(`/api/student/courses/${course.id}/quizzes`);
-            const courseQuizzes: Omit<Quiz, 'course_title'>[] = await handleApiResponse(quizzesRes);
-            return courseQuizzes.map(quiz => ({ ...quiz, course_title: course.title }));
-          } catch (e) {
-            console.error(`Failed to fetch quizzes for course ${course.title}`, e);
-            return []; // Return empty array if a course's quizzes fail to load
-          }
-        });
-
-        const quizzesByCourse = await Promise.all(quizPromises);
-        const allQuizzes = quizzesByCourse.flat();
-        
-        const available = allQuizzes.filter((quiz: Quiz) => !quiz.is_submitted);
-        const completed = allQuizzes.filter((quiz: Quiz) => quiz.is_submitted);
-
-        setAvailableQuizzes(available);
-        setCompletedQuizzes(completed);
-
-      } catch (err) {
-        if (err instanceof UnauthorizedError) {
-          toast.error('Session expired. Please log in again.');
-          navigate('/login');
-        } else {
-          setError('Failed to load quizzes. Please try again later.');
-          if (err instanceof Error) {
-            toast.error(err.message);
-          } else {
-            toast.error('An unexpected error occurred.');
-          }
-        }
-      } finally {
+      if (enrolledCourses.length === 0) {
+        setAvailableQuizzes([]);
+        setCompletedQuizzes([]);
         setLoading(false);
+        return;
       }
+
+      const quizPromises = enrolledCourses.map(async (course) => {
+        try {
+          const quizzesRes = await fetchWithAuth(`/api/student/courses/${course.id}/quizzes`);
+          const courseQuizzes: Omit<Quiz, 'course_title'>[] = await handleApiResponse(quizzesRes);
+          return courseQuizzes.map(quiz => ({ ...quiz, course_title: course.title }));
+        } catch (e) {
+          console.error(`Failed to fetch quizzes for course ${course.title}`, e);
+          return [];
+        }
+      });
+
+      const quizzesByCourse = await Promise.all(quizPromises);
+      const allQuizzes = quizzesByCourse.flat();
+      
+      const available = allQuizzes.filter((quiz: Quiz) => !quiz.is_submitted);
+      const completed = allQuizzes.filter((quiz: Quiz) => quiz.is_submitted);
+
+      setAvailableQuizzes(available);
+      setCompletedQuizzes(completed);
+
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        toast.error('Session expired. Please log in again.');
+        navigate('/login');
+      } else {
+        setError('Failed to load quizzes. Please try again later.');
+        if (err instanceof Error) {
+          toast.error(err.message);
+        } else {
+          toast.error('An unexpected error occurred.');
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    fetchQuizzes(); // Initial fetch
+
+    const handleQuizUpdate = () => {
+      console.log('Quiz update event received, refetching quizzes.');
+      toast.info('The quiz list has been updated.');
+      fetchQuizzes();
     };
 
-    fetchQuizzes();
-  }, [navigate]);
+    window.addEventListener('quiz-updated', handleQuizUpdate);
+
+    // Cleanup listener on component unmount
+    return () => {
+      window.removeEventListener('quiz-updated', handleQuizUpdate);
+    };
+  }, [fetchQuizzes]);
 
   const renderQuizCard = (quiz: Quiz) => {
     const isCompleted = quiz.is_submitted;
