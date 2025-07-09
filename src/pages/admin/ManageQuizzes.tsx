@@ -313,13 +313,13 @@ const ManageQuizzes: React.FC = () => {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     <div className="space-y-3">
-                      <Label htmlFor={`q-text-${qIndex}`} className="font-semibold text-black">{`Question ${qIndex + 1}`}</Label>
+                      <Label htmlFor={`q-text-${qIndex}`} className="font-semibold text-red-600">{`Question ${qIndex + 1}`}</Label>
                       <Textarea
                         id={`q-text-${qIndex}`}
                         placeholder="What is the capital of..."
                         value={q.text}
                         onChange={(e) => handleQuestionChange(qIndex, 'text', e.target.value)}
-                        className="bg-white"
+                        className="bg-white text-black"
                       />
                       <div className="pl-4 pt-2 space-y-2">
                         {q.options.map((opt, oIndex) => (
