@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Play, Star, Users, BookOpen } from "lucide-react";
+import { Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const HeroSection = () => {
@@ -26,20 +26,6 @@ const HeroSection = () => {
               </Button>
             </div>
             
-            <div className="flex items-center gap-8 pt-8">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                <span className="text-muted-foreground">10,000+ Students</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-primary" />
-                <span className="text-muted-foreground">500+ Courses</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-primary" />
-                <span className="text-muted-foreground">4.9 Rating</span>
-              </div>
-            </div>
           </div>
           
           <div className="relative">
