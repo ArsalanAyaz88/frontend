@@ -36,17 +36,17 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
   return response;
 };
 
-export const handleApiResponse = async <T>(response: Response): Promise<T> => {
-    if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`;
+export const handleApiResponse = async <T>(res: Response): Promise<T> => {
+    if (!res.ok) {
+        let errorMessage = `HTTP error! status: ${res.status}`;
         try {
             // Assume error response has a standard shape
-            const errorData: { message?: string, detail?: string } = await response.json();
+            const errorData: { message?: string, detail?: string } = await res.json();
             errorMessage = errorData.detail || errorData.message || errorMessage;
         } catch (e) {
             // Response body is not JSON or is empty, use the status-based message.
         }
         throw new Error(errorMessage);
     }
-    return response.json();
+    return res.json();
 };

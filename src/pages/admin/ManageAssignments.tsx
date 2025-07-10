@@ -56,10 +56,18 @@ interface Assignment {
 
 interface Submission {
   id: string;
-  student: { id: string; name: string; };
+  student_id: string;
+  email: string;
+  full_name: string;
   submitted_at: string;
+  content_url: string;
   grade: number | null;
   feedback: string | null;
+}
+
+interface SubmissionsResponse {
+  assignment: Assignment;
+  submissions: Submission[];
 }
 
 // --- Main Component ---
@@ -273,8 +281,8 @@ const ManageAssignments = () => {
           }
         }
       );
-      const data = await handleApiResponse(response);
-      setSubmissions(data && Array.isArray(data.submissions) ? data.submissions : []);
+      const data = await handleApiResponse<SubmissionsResponse>(response);
+      setSubmissions(data?.submissions ?? []);
     } catch (error) {
       toast.error('Failed to fetch submissions.');
       setSubmissions([]);
@@ -463,7 +471,7 @@ const ManageAssignments = () => {
               <TableBody>
                 {submissions.map(sub => (
                   <TableRow key={sub.id}>
-                    <TableCell>{sub.student.name}</TableCell>
+                    <TableCell>{sub.full_name}</TableCell>
                     <TableCell>{new Date(sub.submitted_at).toLocaleString()}</TableCell>
                     <TableCell>{sub.grade ?? 'Not Graded'}</TableCell>
                     <TableCell className="text-right"><Button size="sm" onClick={() => { setGradingSubmission(sub); setGrade(String(sub.grade ?? '')); setFeedback(sub.feedback ?? ''); }}>Grade</Button></TableCell>
