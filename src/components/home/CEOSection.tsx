@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Quote, Linkedin, Twitter, Mail } from "lucide-react";
+import { Quote } from "lucide-react";
 
 const CEOSection = () => {
   return (
@@ -47,18 +47,6 @@ const CEOSection = () => {
                       Director, Medical Ultrasound Training Institute (SUTI)<br/>
                       Consultant Radiologist, Consultant Sonologist
                     </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                      <Linkedin className="h-5 w-5" />
-                    </a>
-                    <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                      <Twitter className="h-5 w-5" />
-                    </a>
-                    <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                      <Mail className="h-5 w-5" />
-                    </a>
                   </div>
                 </div>
               </div>
