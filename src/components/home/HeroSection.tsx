@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const HeroSection = () => {
@@ -20,10 +19,7 @@ const HeroSection = () => {
                   Start Learning
                 </Button>
               </Link>
-              <Button variant="outline" className="text-lg px-8 py-4 border-primary/50 hover:bg-primary/10">
-                <Play className="mr-2 h-5 w-5" />
-                Watch Demo
-              </Button>
+
             </div>
             
           </div>
