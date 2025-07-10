@@ -166,8 +166,7 @@ const ManageAssignments = () => {
     const body = {
       title: assignmentTitle,
       description: assignmentDesc,
-      due_date: assignmentDueDate.toISOString(),
-      course_id: selectedCourse
+      due_date: assignmentDueDate.toISOString()
     };
 
     const baseUrl = 'https://student-portal-lms-seven.vercel.app/api';
