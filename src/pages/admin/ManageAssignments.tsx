@@ -114,7 +114,7 @@ const ManageAssignments = () => {
       setLoading(prev => ({ ...prev, assignments: true }));
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${selectedCourse}/assignments`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse}/assignments`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -173,7 +173,7 @@ const ManageAssignments = () => {
     const baseUrl = 'https://student-portal-lms-seven.vercel.app/api';
     const endpoint = editingAssignment
       ? `/admin/courses/${selectedCourse}/assignments/${editingAssignment.id}`
-      : `/admin/admin/courses/${selectedCourse}/assignments`;
+      : `/admin/courses/${selectedCourse}/assignments`;
       
     const method = editingAssignment ? 'PUT' : 'POST';
     const token = localStorage.getItem('admin_access_token');
@@ -237,7 +237,7 @@ const ManageAssignments = () => {
     try {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${selectedCourse}/assignments/${assignmentId}`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse}/assignments/${assignmentId}`,
         {
           method: 'DELETE',
           headers: {
@@ -285,7 +285,7 @@ const ManageAssignments = () => {
     try {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(
-        `https://student-portal-lms-seven.vercel.app/api/admin/admin/courses/${viewingSubmissionsFor.course_id}/assignments/${viewingSubmissionsFor.id}/submissions/${gradingSubmission.id}/grade`,
+        `https://student-portal-lms-seven.vercel.app/api/admin/courses/${viewingSubmissionsFor.course_id}/assignments/${viewingSubmissionsFor.id}/submissions/${gradingSubmission.id}/grade`,
         {
           method: 'POST',
           headers: {
