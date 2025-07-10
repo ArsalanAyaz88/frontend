@@ -63,7 +63,7 @@ const Login = () => {
 
       toast({
         title: "Login Successful!",
-        description: data.message || `Welcome back to EduVerse!`,
+        description: data.message || `Welcome back to SUTI!`,
       });
       
       const enrollCourseId = localStorage.getItem('enrollCourseId');
@@ -106,9 +106,14 @@ const Login = () => {
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-2 mb-6">
             <GraduationCap className="h-10 w-10 text-primary" />
-            <span className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
-              EduVerse
-            </span>
+            <div className="flex flex-col items-center">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
+                SUTI
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Sabriy Ultrasound Training Institute
+              </p>
+            </div>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
           <p className="text-muted-foreground">Sign in to continue your learning journey</p>

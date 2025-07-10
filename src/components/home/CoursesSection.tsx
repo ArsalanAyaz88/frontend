@@ -95,7 +95,7 @@ const CoursesSection = () => {
             <Link to={`/student/courses/${course.id}`} className="block">
               <div className="relative">
                 <img 
-                  src={course.thumbnail_url || `https://placehold.co/600x400/1e293b/ffffff?text=EduVerse`}
+                  src={course.thumbnail_url || `https://placehold.co/600x400/1e293b/ffffff?text=SUTI`}
                   alt={course.title}
                   className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                 />
