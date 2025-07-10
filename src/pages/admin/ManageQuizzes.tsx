@@ -113,14 +113,18 @@ const ManageQuizzes: React.FC = () => {
 
     try {
       const response = await fetchWithAuth(`/api/admin/quizzes/${quizId}`, { method: 'DELETE' });
-      await handleApiResponse(response);
-      toast.success('Quiz deleted successfully!');
-      if (selectedCourseId) {
-        fetchQuizzesByCourse(selectedCourseId);
+      if (response.ok) {
+        toast.success('Quiz deleted successfully!');
+        if (selectedCourseId) {
+          fetchQuizzesByCourse(selectedCourseId);
+        }
+        window.dispatchEvent(new CustomEvent('quiz-updated')); // Notify other components
+      } else {
+        const errorData = await response.json().catch(() => ({ detail: 'An unknown error occurred.' }));
+        throw new Error(errorData.detail);
       }
-      window.dispatchEvent(new CustomEvent('quiz-updated')); // Notify other components
     } catch (error) {
-      toast.error('Failed to delete quiz.');
+      toast.error((error as Error).message || 'Failed to delete quiz.');
     }
   };
 
