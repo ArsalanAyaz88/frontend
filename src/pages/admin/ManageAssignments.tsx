@@ -97,7 +97,7 @@ const ManageAssignments = () => {
         }
       });
       const data = await handleApiResponse(response);
-      setCourses(data || []);
+      setCourses(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error('Failed to fetch courses.');
     } finally {
@@ -122,7 +122,7 @@ const ManageAssignments = () => {
         }
       );
       const data = await handleApiResponse(response);
-      setAssignments(data || []);
+      setAssignments(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error('Failed to fetch assignments.');
       setAssignments([]);
@@ -248,8 +248,12 @@ const ManageAssignments = () => {
         toast.success('Assignment deleted successfully!');
         fetchAssignments();
       } else {
-        const result = await handleApiResponse(response);
-        toast.error(result.detail || 'Failed to delete assignment.');
+        try {
+          const result = await handleApiResponse<{ detail?: string }>(response);
+          toast.error(result.detail || 'Failed to delete assignment.');
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to delete assignment.');
+        }
       }
     } catch (error) {
       toast.error('Failed to delete assignment.');
@@ -270,7 +274,7 @@ const ManageAssignments = () => {
         }
       );
       const data = await handleApiResponse(response);
-      setSubmissions(data || []);
+      setSubmissions(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error('Failed to fetch submissions.');
       setSubmissions([]);
