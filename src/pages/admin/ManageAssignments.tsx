@@ -298,7 +298,7 @@ const ManageAssignments = () => {
       const response = await fetchWithAuth(
         `https://student-portal-lms-seven.vercel.app/api/admin/courses/${viewingSubmissionsFor.course_id}/assignments/${viewingSubmissionsFor.id}/submissions/${gradingSubmission.id}/grade`,
         {
-          method: 'POST',
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
