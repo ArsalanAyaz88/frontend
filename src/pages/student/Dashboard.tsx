@@ -96,28 +96,19 @@ const Dashboard = () => {
             throw new Error('Could not fetch user profile.');
         }
         const profileData = await profileResponse.json();
+        console.log('Received profile data:', profileData); // Add this line for debugging
+        // The API returns a flat object, so we access full_name directly.
         const studentName = profileData.full_name;
 
-        if (!studentName || studentName.toLowerCase() === 'string') {
+        if (!studentName || typeof studentName !== 'string') {
             throw new Error('Invalid student name in profile.');
         }
 
-        // 2. Request the certificate with the fetched name
         const certResponse = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate?name=${encodeURIComponent(studentName)}`);
         const certData = await certResponse.json();
 
         if (certResponse.ok && certData.certificate_url) {
-            // 3. Download the certificate
-            const fileResponse = await fetch(certData.certificate_url);
-            const blob = await fileResponse.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `certificate-${courseId}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            window.open(certData.certificate_url, '_blank');
         } else {
             toast({ title: "Error", description: certData.detail || "Could not generate certificate.", variant: "destructive" });
         }
