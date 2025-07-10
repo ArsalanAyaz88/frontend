@@ -90,7 +90,7 @@ const Dashboard = () => {
   const handleGetCertificate = async (courseId: string) => {
     setIsCertificateLoading(prev => ({ ...prev, [courseId]: true }));
     try {
-        const response = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate`);
+        const response = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate?name=${encodeURIComponent(userName)}`);
         const data = await response.json();
         if (response.ok && data.certificate_url) {
             // Fetch the certificate file as a blob
