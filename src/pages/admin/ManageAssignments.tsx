@@ -274,7 +274,7 @@ const ManageAssignments = () => {
         }
       );
       const data = await handleApiResponse(response);
-      setSubmissions(Array.isArray(data) ? data : []);
+      setSubmissions(data && Array.isArray(data.submissions) ? data.submissions : []);
     } catch (error) {
       toast.error('Failed to fetch submissions.');
       setSubmissions([]);
