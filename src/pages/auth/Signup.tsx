@@ -9,8 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
     email: "",
     password: "",
     confirmPassword: ""
@@ -32,7 +30,7 @@ const Signup = () => {
       return;
     }
 
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+    if (!formData.email || !formData.password) {
       toast({
         title: "Error",
         description: "Please fill in all fields.",
@@ -59,7 +57,7 @@ const Signup = () => {
       if (response.ok) {
         toast({
           title: "Account Created Successfully!",
-          description: `Welcome ${formData.firstName}! Your account has been created with role: ${data.role}. Please login to continue.`,
+          description: `Your account has been created with role: ${data.role}. Please login to continue.`,
         });
         navigate("/login");
       } else {
@@ -109,30 +107,7 @@ const Signup = () => {
 
         <Card className="glass-card p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  placeholder="John"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  placeholder="Doe"
-                  className="mt-1"
-                />
-              </div>
-            </div>
+
 
             <div>
               <Label htmlFor="email">Email</Label>
