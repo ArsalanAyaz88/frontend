@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from '@/components/ui/textarea';
 import { Progress } from "@/components/ui/progress";
-import { Loader2, MessageSquare, Download } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import { fetchWithAuth, UnauthorizedError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -39,12 +36,7 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [feedback, setFeedback] = useState('');
-  const [improvement, setImprovement] = useState('');
-  const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
-  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
   const [isCertificateLoading, setIsCertificateLoading] = useState<Record<string, boolean>>({});
-  const [feedbackCourse, setFeedbackCourse] = useState<AnalyticsData | null>(null);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -87,6 +79,7 @@ const Dashboard = () => {
     fetchInitialData();
   }, [navigate]);
 
+
   const handleGetCertificate = async (courseId: string) => {
     setIsCertificateLoading(prev => ({ ...prev, [courseId]: true }));
     try {
@@ -121,42 +114,21 @@ const Dashboard = () => {
     }
   };
 
-  const handleOpenFeedbackDialog = (analytics: AnalyticsData) => {
-    setFeedbackCourse(analytics);
-    setIsFeedbackDialogOpen(true);
-  };
-
-  const handleFeedbackSubmit = async () => {
-    if (!feedbackCourse || !feedback) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please provide feedback before submitting.' });
-      return;
-    }
-    setIsFeedbackSubmitting(true);
-    try {
-      const response = await fetchWithAuth(`/api/student/dashboard/courses/${feedbackCourse.course_id}/feedback`, {
-        method: 'POST',
-        body: JSON.stringify({ feedback, improvement_suggestions: improvement }),
-      });
-      if (response.ok) {
-        toast({ title: 'Success', description: 'Thank you for your feedback!' });
-        setIsFeedbackDialogOpen(false);
-        setFeedback('');
-        setImprovement('');
-        setFeedbackCourse(null);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to submit feedback.');
-      }
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err.message });
-    }
-    setIsFeedbackSubmitting(false);
-  };
-
   if (isLoading) {
     return (
       <DashboardLayout userType="student">
         <div className="flex justify-center items-center h-[calc(100vh-8rem)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout userType="student">
+        <div className="flex flex-col justify-center items-center h-[calc(100vh-8rem)]">
+          <p className="text-red-500 text-lg">{error}</p>
+          <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+        </div>
       </DashboardLayout>
     );
   }
@@ -176,7 +148,6 @@ const Dashboard = () => {
                 <CardContent className="flex-grow">
                   <AnalyticsDisplay 
                     analytics={analytics} 
-                    onFeedbackClick={() => handleOpenFeedbackDialog(analytics)}
                     onGetCertificate={() => handleGetCertificate(analytics.course_id)}
                     isCertificateLoading={!!isCertificateLoading[analytics.course_id]}
                   />
@@ -190,31 +161,13 @@ const Dashboard = () => {
           </div>
         )}
 
-        <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Provide Feedback for {feedbackCourse?.course.title || 'this course'}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <Textarea placeholder="What did you like or find helpful?" value={feedback} onChange={e => setFeedback(e.target.value)} rows={4}/>
-              <Textarea placeholder="What could be improved? (Optional)" value={improvement} onChange={e => setImprovement(e.target.value)} rows={4}/>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsFeedbackDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting}>
-                {isFeedbackSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Feedback
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
       </div>
     </DashboardLayout>
   );
 };
 
 // --- HELPER COMPONENTS ---
-const AnalyticsDisplay = ({ analytics, onFeedbackClick, onGetCertificate, isCertificateLoading }: { analytics: AnalyticsData, onFeedbackClick: () => void, onGetCertificate: () => void, isCertificateLoading: boolean }) => (
+const AnalyticsDisplay = ({ analytics, onGetCertificate, isCertificateLoading }: { analytics: AnalyticsData, onGetCertificate: () => void, isCertificateLoading: boolean }) => (
   <div className="space-y-6">
     <div className="flex justify-between items-start">
       <div>
@@ -228,7 +181,6 @@ const AnalyticsDisplay = ({ analytics, onFeedbackClick, onGetCertificate, isCert
             Get Certificate
           </Button>
         )}
-        <Button onClick={onFeedbackClick}><MessageSquare className="mr-2 h-4 w-4" /> Provide Feedback</Button>
       </div>
     </div>
 
