@@ -1,5 +1,5 @@
 import { useEffect, useState, ChangeEvent } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ interface AssignmentDetail {
 
 const AssignmentDetailPage = () => {
   const { courseId, assignmentId } = useParams<{ courseId: string; assignmentId: string }>();
+  const navigate = useNavigate();
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,24 +92,15 @@ const AssignmentDetailPage = () => {
         body: formData,
       });
 
-      await handleApiResponse(res);
-      toast({ title: "Submission Sent", description: "Your submission has been sent. Checking for updated status..." });
+      const data = await handleApiResponse(res);
+      toast({ title: "Success", description: data.detail || "Assignment submitted successfully." });
+      
+      // Navigate back to the assignments list to see the updated status
+      navigate('/student/assignments');
+
     } catch (err: any) {
-      // Even if the submission returns an error, we attempt to refetch the status,
-      // as the backend might have processed it despite the error response.
-      toast({ title: "Submission Incomplete", description: `An issue occurred during submission: ${err.message}. We will still check for an update.`, variant: "destructive" });
+      toast({ title: "Submission Failed", description: err.message, variant: "destructive" });
     } finally {
-      // Always refetch the assignment details to get the latest status.
-      try {
-        const refreshRes = await fetchWithAuth(`/api/student/assignments/courses/${courseId}/assignments/${assignmentId}`);
-        const refreshedData = await handleApiResponse(refreshRes);
-        setAssignment(refreshedData);
-        if (refreshedData.submission) {
-            toast({ title: "Success", description: "Your assignment has been successfully submitted and updated." });
-        }
-      } catch (refreshErr: any) {
-        toast({ title: "Status Check Failed", description: `Could not verify the final submission status: ${refreshErr.message}`, variant: "destructive" });
-      }
       setIsSubmitting(false);
     }
   };
@@ -137,7 +129,7 @@ const AssignmentDetailPage = () => {
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <Link to="/student/assignments" state={{ refresh: true }} className="text-sm text-primary hover:underline mb-2 block">&larr; Back to Assignments</Link>
+                <Link to="/student/assignments" className="text-sm text-primary hover:underline mb-2 block">&larr; Back to Assignments</Link>
                 <CardTitle className="text-3xl font-bold">{assignment.title}</CardTitle>
                 <p className="text-muted-foreground">{assignment.course_title}</p>
               </div>

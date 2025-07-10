@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,6 @@ const Assignments = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     const fetchAssignments = async () => {
@@ -42,17 +41,11 @@ const Assignments = () => {
           return;
         }
 
-        // The effect should re-run if the refresh state is set
-        if (location.state?.refresh) {
-            // Reset the state to avoid re-fetching on other re-renders
-            navigate(location.pathname, { replace: true, state: {} });
-        }
-
         const assignmentsPromises = enrolledCourses.map(async (course: any) => {
           try {
             const assignmentsRes = await fetchWithAuth(`/api/student/assignments/courses/${course.id}/assignments`);
-            const courseAssignments = await handleApiResponse(assignmentsRes) as Assignment[];
-            return courseAssignments.map((assignment: Assignment) => ({
+            const courseAssignments = await handleApiResponse(assignmentsRes);
+            return courseAssignments.map((assignment: any) => ({
               ...assignment,
               course_id: course.id,
               course_title: course.title,
@@ -93,7 +86,7 @@ const Assignments = () => {
     };
 
     fetchAssignments();
-  }, [toast, navigate, location.state?.refresh]);
+  }, [toast, navigate]);
 
   const pendingAssignments = assignments.filter(a => a.status !== 'submitted' && a.status !== 'graded');
   const submittedAssignments = assignments.filter(a => a.status === 'submitted' || a.status === 'graded');
