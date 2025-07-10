@@ -96,7 +96,6 @@ const Dashboard = () => {
             throw new Error('Could not fetch user profile.');
         }
         const profileData = await profileResponse.json();
-        console.log('Received profile data:', profileData); // Add this line for debugging
         // The API returns a flat object, so we access full_name directly.
         const studentName = profileData.full_name;
 
@@ -104,6 +103,7 @@ const Dashboard = () => {
             throw new Error('Invalid student name in profile.');
         }
 
+        // Correct the API endpoint to match the backend route
         const certResponse = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate?name=${encodeURIComponent(studentName)}`);
         const certData = await certResponse.json();
 
