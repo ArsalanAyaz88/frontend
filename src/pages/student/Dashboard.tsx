@@ -90,30 +90,44 @@ const Dashboard = () => {
   const handleGetCertificate = async (courseId: string) => {
     setIsCertificateLoading(prev => ({ ...prev, [courseId]: true }));
     try {
-        const response = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate?name=${encodeURIComponent(userName)}`);
-        const data = await response.json();
-        if (response.ok && data.certificate_url) {
-            // Fetch the certificate file as a blob
-            const fileResponse = await fetch(data.certificate_url);
+        // 1. Fetch the latest user profile to ensure we have the correct name
+        const profileResponse = await fetchWithAuth('/api/profile/profile');
+        if (!profileResponse.ok) {
+            throw new Error('Could not fetch user profile.');
+        }
+        const profileData = await profileResponse.json();
+        const studentName = profileData.full_name;
+
+        if (!studentName || studentName.toLowerCase() === 'string') {
+            throw new Error('Invalid student name in profile.');
+        }
+
+        // 2. Request the certificate with the fetched name
+        const certResponse = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate?name=${encodeURIComponent(studentName)}`);
+        const certData = await certResponse.json();
+
+        if (certResponse.ok && certData.certificate_url) {
+            // 3. Download the certificate
+            const fileResponse = await fetch(certData.certificate_url);
             const blob = await fileResponse.blob();
-            // Create a temporary anchor to trigger download
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `certificate-${courseId}.pdf`;
             document.body.appendChild(a);
             a.click();
-            a.remove();
             window.URL.revokeObjectURL(url);
-            toast({ title: 'Success', description: 'Certificate is being downloaded!' });
+            document.body.removeChild(a);
         } else {
-            throw new Error(data.detail || 'Failed to get certificate');
+            toast({ title: "Error", description: certData.detail || "Could not generate certificate.", variant: "destructive" });
         }
-    } catch (err: any) {
-        console.error('Certificate download error:', err);
-        toast({ variant: 'destructive', title: 'Error', description: err.message || 'An error occurred.' });
+    } catch (err) {
+        console.error("Certificate generation failed", err);
+        const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
+        toast({ title: "Error", description: errorMessage, variant: "destructive" });
+    } finally {
+        setIsCertificateLoading(prev => ({ ...prev, [courseId]: false }));
     }
-    setIsCertificateLoading(prev => ({ ...prev, [courseId]: false }));
   };
 
   const handleOpenFeedbackDialog = (analytics: AnalyticsData) => {
