@@ -84,7 +84,7 @@ const Dashboard = () => {
     setIsCertificateLoading(prev => ({ ...prev, [courseId]: true }));
     try {
         // The backend now handles user identification and name automatically.
-        const certResponse = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate`);
+        const certResponse = await fetchWithAuth(`/api/courses/${courseId}/certificate`);
         const certData = await certResponse.json();
 
         if (certResponse.ok && certData.certificate_url) {
