@@ -83,8 +83,20 @@ const Dashboard = () => {
   const handleGetCertificate = async (courseId: string) => {
     setIsCertificateLoading(prev => ({ ...prev, [courseId]: true }));
     try {
-        // The backend now handles user identification and name automatically.
-        const certResponse = await fetchWithAuth(`/api/courses/${courseId}/certificate`);
+        // 1. Fetch the latest user profile to ensure we have the correct name.
+        const profileResponse = await fetchWithAuth('/api/profile/profile');
+        if (!profileResponse.ok) {
+            throw new Error('Could not fetch user profile.');
+        }
+        const profileData = await profileResponse.json();
+        const studentName = profileData.full_name;
+
+        if (!studentName || typeof studentName !== 'string' || studentName.toLowerCase() === 'string') {
+            throw new Error('Invalid student name in profile. Please update your profile.');
+        }
+
+        // 2. Request the certificate with the student's name.
+        const certResponse = await fetchWithAuth(`/api/courses/${courseId}/certificate?name=${encodeURIComponent(studentName)}`);
         const certData = await certResponse.json();
 
         if (certResponse.ok && certData.certificate_url) {
