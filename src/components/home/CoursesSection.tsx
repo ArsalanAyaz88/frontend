@@ -117,10 +117,10 @@ const CoursesSection = () => {
               </div>
             </Link>
             <div className="p-6">
-              <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors h-14">
+              <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors min-h-[3.5rem]">
                 <Link to={`/student/courses/${course.id}`}>{course.title}</Link>
               </h3>
-              <div className="flex items-center justify-between pt-4 mt-4 border-t border-border/50">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-4 border-t border-border/50">
                 <span className="text-2xl font-bold text-primary">
                   {course.price > 0 ? `$${course.price}` : 'Free'}
                 </span>
@@ -136,13 +136,13 @@ const CoursesSection = () => {
   };
 
   return (
-    <section id="courses" className="py-20 px-6">
+    <section id="courses" className="py-12 md:py-20 px-6">
       <div className="container mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-6">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
             Explore Our <span className="text-primary">Courses</span>
           </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
             Find the perfect course to help you achieve your goals.
           </p>
         </div>

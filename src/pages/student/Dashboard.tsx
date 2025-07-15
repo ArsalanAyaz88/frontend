@@ -136,7 +136,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout userType="student">
       <div className="space-y-8">
-        <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Welcome back, {userName}!</h1>
         
         {allAnalytics.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -169,9 +169,9 @@ const Dashboard = () => {
 // --- HELPER COMPONENTS ---
 const AnalyticsDisplay = ({ analytics, onGetCertificate, isCertificateLoading }: { analytics: AnalyticsData, onGetCertificate: () => void, isCertificateLoading: boolean }) => (
   <div className="space-y-6">
-    <div className="flex justify-between items-start">
+    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
       <div>
-        <h2 className="text-2xl font-bold text-primary">{analytics.course.title}</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-primary">{analytics.course.title}</h2>
         <p className="text-muted-foreground mt-1">{analytics.course.description}</p>
       </div>
       <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ const AnalyticsDisplay = ({ analytics, onGetCertificate, isCertificateLoading }:
 const StatCard = ({ title, value }: { title: string, value: string }) => (
   <Card>
     <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle></CardHeader>
-    <CardContent><p className="text-2xl font-bold">{value}</p></CardContent>
+    <CardContent><p className="text-xl sm:text-2xl font-bold">{value}</p></CardContent>
   </Card>
 );
 

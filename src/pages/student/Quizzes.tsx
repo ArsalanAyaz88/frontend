@@ -105,7 +105,7 @@ const Quizzes = () => {
 
     return (
       <Card key={quiz.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex-1 space-y-4">
             <div className="flex items-center space-x-3">
               <h3 className="text-xl font-semibold">{quiz.title}</h3>
@@ -158,12 +158,12 @@ const Quizzes = () => {
     <DashboardLayout userType="student">
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Quizzes</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Quizzes</h1>
           <p className="text-muted-foreground">Test your knowledge and track your progress</p>
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
           <Card className="glass-card p-6">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">

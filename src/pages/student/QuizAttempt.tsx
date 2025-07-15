@@ -151,7 +151,7 @@ const QuizAttempt = () => {
       <div className="container mx-auto p-4 md:p-8">
         <Card>
           <CardHeader>
-            <CardTitle className="text-3xl">{quiz.title}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">{quiz.title}</CardTitle>
             <CardDescription>{quiz.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">

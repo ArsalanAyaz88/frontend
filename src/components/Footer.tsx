@@ -1,11 +1,10 @@
-import { Link } from "react-router-dom";
-import { GraduationCap, Mail, Phone, MapPin, MessageCircle } from "lucide-react";
+import { Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 
 const Footer = () => {
   return (
     <footer className="w-full bg-background/80 border-t border-border/50 py-6 mt-12">
-      <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4 px-4">
-        <div className="flex flex-col items-start">
+      <div className="container mx-auto flex flex-col md:flex-row items-center md:items-start justify-between gap-4 px-4 text-center md:text-left">
+        <div className="flex flex-col items-center md:items-start">
           <span className="text-xl font-bold text-primary">SUTI</span>
           <span className="text-sm text-muted-foreground">Sabriy Ultrasound Training Institute</span>
           <span className="text-xs text-muted-foreground mt-1">Excellence in Ultrasound Education & Training</span>

@@ -1,8 +1,22 @@
 #root {
-  max-width: 1280px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 2rem; /* Default padding for larger screens */
+  width: 100%;
+  box-sizing: border-box; /* Include padding in the width calculation */
+}
+
+/* Responsive adjustments for the main container */
+@media (max-width: 768px) {
+  #root {
+    padding: 1rem; /* Smaller padding for tablets */
+  }
+}
+
+@media (max-width: 480px) {
+  #root {
+    padding: 0.5rem; /* Minimal padding for mobile phones */
+  }
 }
 
 .logo {

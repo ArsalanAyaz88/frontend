@@ -3,20 +3,20 @@ import { Quote } from "lucide-react";
 
 const CEOSection = () => {
   return (
-    <section id="about" className="py-20 px-6 bg-muted/20">
+    <section id="about" className="py-12 md:py-20 px-6 bg-muted/20">
       <div className="container mx-auto">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
               Meet Our <span className="text-primary">Founder & CEO</span>
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-lg md:text-xl text-muted-foreground">
               Leading SUTI (Sabriy Ultrasound Training Institute) with a vision for excellence in ultrasound education and training.
             </p>
           </div>
           
           <Card className="glass-card p-8 lg:p-12">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
               <div className="order-2 lg:order-1">
                 <Quote className="h-12 w-12 text-primary mb-6" />
                 <blockquote className="text-lg leading-relaxed mb-6">

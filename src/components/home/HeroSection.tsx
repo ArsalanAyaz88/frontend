@@ -3,17 +3,17 @@ import { Link } from "react-router-dom";
 
 const HeroSection = () => {
   return (
-    <section className="pt-24 pb-16 px-6">
+    <section className="pt-20 md:pt-24 pb-12 md:pb-16 px-6">
       <div className="container mx-auto">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8">
-            <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <div className="space-y-8 text-center lg:text-left">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-tight">
               Sabriy Ultrasound Training Institute
             </h1>
             <p className="text-xl text-muted-foreground leading-relaxed">
               Empowering the next generation of ultrasound professionals with world-class training, advanced technology, and over two decades of proven excellence. Join a legacy of expertise and innovation in diagnostic imaging.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Link to="/signup">
                 <Button className="btn-neon text-lg px-8 py-4">
                   Start Learning

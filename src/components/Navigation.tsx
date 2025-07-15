@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Menu, X } from "lucide-react";
 
 const Navigation = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -51,7 +53,14 @@ const Navigation = () => {
           </button>
         </div>
         
-        <div className="flex items-center space-x-4">
+        {/* Hamburger Menu for Mobile */}
+        <div className="md:hidden flex items-center">
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-foreground">
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+
+        <div className="hidden md:flex items-center space-x-4">
           <Link to="/login">
             <Button
               variant="ghost"
@@ -67,6 +76,36 @@ const Navigation = () => {
           </Link>
         </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-background/95 backdrop-blur-sm absolute top-full left-0 w-full flex flex-col items-center space-y-4 py-4 border-t border-border/50">
+          <Link to="/" className={`nav-link${location.pathname === '/' ? ' text-primary font-bold' : ''}`} onClick={() => setIsMenuOpen(false)}>
+            Home
+          </Link>
+          <button onClick={() => { scrollToSection('courses'); setIsMenuOpen(false); }} className="nav-link cursor-pointer">
+            Explore Courses
+          </button>
+          <button onClick={() => { scrollToSection('about'); setIsMenuOpen(false); }} className="nav-link cursor-pointer">
+            About
+          </button>
+          <button onClick={() => { scrollToSection('contact'); setIsMenuOpen(false); }} className="nav-link cursor-pointer">
+            Contact
+          </button>
+          <div className="flex items-center space-x-4 pt-4">
+            <Link to="/login" onClick={() => setIsMenuOpen(false)}>
+              <Button variant="ghost" className="text-foreground font-medium">
+                Login
+              </Button>
+            </Link>
+            <Link to="/signup" onClick={() => setIsMenuOpen(false)}>
+              <Button className="bg-primary text-white shadow px-6 py-2 rounded-full font-semibold text-base">
+                Sign Up
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
