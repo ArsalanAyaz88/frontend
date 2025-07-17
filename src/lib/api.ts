@@ -14,7 +14,7 @@ interface UserSession {
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 export const axiosWithAuth = async (url: string, options: AxiosRequestConfig = {}): Promise<any> => {
-  const headers = { ...options.headers };
+  const headers: Record<string, any> = { ...options.headers };
 
   // Try to get admin token first, then fall back to user token
   let token: string | null = null;
