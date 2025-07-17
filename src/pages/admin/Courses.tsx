@@ -142,8 +142,8 @@ export default function AdminCourses() {
     }
 
     try {
-      const isUpdating = !!selectedCourse;
-      const url = isUpdating ? `/api/admin/courses/${selectedCourse._id}` : '/api/admin/courses';
+      const isUpdating = !!data._id;
+      const url = isUpdating ? `/api/admin/courses/${data._id}` : '/api/admin/courses';
       const method = isUpdating ? 'PUT' : 'POST';
 
       const response = await fetchWithAuth(url, {
