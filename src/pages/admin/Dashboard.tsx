@@ -22,16 +22,10 @@ const AdminDashboard = () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('admin_access_token');
         const response = await fetchWithAuth(
-          "https://student-portal-lms-seven.vercel.app/api/admin/dashboard/stats",
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          }
+          "https://student-portal-lms-seven.vercel.app/api/admin/dashboard/stats"
         );
-        const data = await handleApiResponse(response);
+        const data = await handleApiResponse<DashboardStats>(response);
         setStats(data);
       } catch (err: any) {
         setError(err.message || "Failed to load dashboard stats");

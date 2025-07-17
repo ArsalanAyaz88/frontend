@@ -15,14 +15,27 @@ const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const headers = new Headers(options.headers);
 
-  // Get the user session from localStorage to retrieve the auth token
-  const userSessionString = localStorage.getItem('user');
-  if (userSessionString) {
-    const userSession: UserSession = JSON.parse(userSessionString);
-    // The access_token must be stored in the user session object upon login
-    if (userSession && userSession.access_token) {
-      headers.set('Authorization', `Bearer ${userSession.access_token}`);
+  // Try to get admin token first, then fall back to user token
+  let token: string | null = null;
+  const adminToken = localStorage.getItem('admin_access_token');
+  if (adminToken) {
+    token = adminToken;
+  } else {
+    const userSessionString = localStorage.getItem('user');
+    if (userSessionString) {
+      try {
+        const userSession: UserSession = JSON.parse(userSessionString);
+        if (userSession && userSession.access_token) {
+          token = userSession.access_token;
+        }
+      } catch (e) {
+        console.error("Failed to parse user session from localStorage", e);
+      }
     }
+  }
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
