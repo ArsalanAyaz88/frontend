@@ -293,11 +293,17 @@ const AdminCourses = () => {
         }
       });
 
-      const url = selectedCourse ? `/api/admin/courses/${selectedCourse._id}` : '/api/admin/courses';
+      const url = selectedCourse
+        ? `/api/v1/admin/courses/${selectedCourse._id}`
+        : '/api/v1/admin/courses';
       const method = selectedCourse ? 'PUT' : 'POST';
 
-      const courseResponse = await fetchWithAuth(url, { method, body: courseFormData });
-      const newOrUpdatedCourse = await handleApiResponse(courseResponse) as Course;
+      const courseResponse = await axiosWithAuth(url, {
+        method,
+        data: courseFormData,
+      });
+
+      const newOrUpdatedCourse = courseResponse.data as Course;
       const courseId = newOrUpdatedCourse._id;
 
       // Now, upload videos if any are present
