@@ -117,55 +117,66 @@ export default function AdminCourses() {
 
   // Handle form submission
   const onSubmit = async (data: CourseFormData) => {
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('price', data.price.toString());
+    formData.append('difficulty_level', data.difficulty_level || '');
+    formData.append('outcomes', data.outcomes || '');
+    formData.append('prerequisites', data.prerequisites || '');
+    formData.append('curriculum', data.curriculum || '');
+
+    if (data.thumbnail && data.thumbnail[0]) {
+      formData.append('thumbnail', data.thumbnail[0]);
+    }
+
+    const url = selectedCourse ? `/api/admin/courses/${selectedCourse._id}` : '/api/admin/courses';
+    const method = selectedCourse ? 'PUT' : 'POST';
+
     try {
-      const formData = new FormData();
-      
-      // Append basic course data
-      Object.entries(data).forEach(([key, value]) => {
-        if (key !== 'thumbnail' && key !== 'videos' && value !== undefined) {
-          formData.append(key, String(value));
-        }
+      const response = await fetchWithAuth(url, {
+        method,
+        body: formData,
       });
 
-      // Handle thumbnail upload if it's a file
-      if (data.thumbnail && data.thumbnail instanceof File) {
-        formData.append('thumbnail', data.thumbnail);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save course');
       }
 
-      // Handle course creation/update
-      const url = selectedCourse 
-        ? `/api/admin/courses/${selectedCourse._id}` 
-        : '/api/admin/courses';
-      const method = selectedCourse ? 'PUT' : 'POST';
+      const savedCourse = await response.json();
+      const courseId = savedCourse.course?._id || savedCourse._id;
 
-      const response = await api(url, { method, data: formData });
-      const course = response.data;
+      if (!courseId) {
+        throw new Error('Failed to get course ID');
+      }
 
-      // Handle video uploads if any
       if (data.videos && data.videos.length > 0) {
-        await Promise.all(
-          data.videos.map(async (video, index) => {
-            if (!video.video_file) return;
-            
+        for (const video of data.videos) {
+          if (video.video_file && video.video_file[0]) {
             const videoFormData = new FormData();
-            videoFormData.append('title', video.title || `Video ${index + 1}`);
-            videoFormData.append('description', video.description || '');
-            videoFormData.append('video_file', video.video_file);
+            videoFormData.append('title', video.title);
+            videoFormData.append('description', video.description);
+            videoFormData.append('video_file', video.video_file[0]);
 
-            await api(`/api/courses/${course._id}/videos`, {
-              method: 'POST',
-              data: videoFormData,
+            const videoUrl = video._id
+              ? `/api/courses/${courseId}/videos/${video._id}`
+              : `/api/courses/${courseId}/videos`;
+            
+            await upload(videoUrl, video.video_file[0], 'video_file', {
+              title: video.title,
+              description: video.description,
+              ...(video._id && { _method: 'PUT' }),
             });
-          })
-        );
+          }
+        }
       }
 
       toast.success(`Course ${selectedCourse ? 'updated' : 'created'} successfully`);
       setIsDialogOpen(false);
       fetchCourses();
-    } catch (error) {
-      console.error('Error saving course:', error);
-      toast.error('Failed to save course');
+    } catch (error: any) {
+      toast.error(error.message || 'An error occurred');
     }
   };
 
