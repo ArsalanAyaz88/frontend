@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm, useFieldArray, Controller, useFormContext } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, useFormContext, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AxiosProgressEvent } from 'axios';
 import * as z from 'zod';
@@ -174,7 +174,7 @@ const AdminCourses = () => {
     }
   };
 
-  const onSubmit = async (data: CourseFormData) => {
+    const onSubmit = async (data: CourseFormData) => {
     setIsUploading(true);
     const promise = async () => {
       const coursePayload = { ...data };
@@ -196,18 +196,24 @@ const AdminCourses = () => {
       const newOrUpdatedCourse = await handleApiResponse(courseResponse) as Course;
       const courseId = newOrUpdatedCourse._id;
 
-      if (data.videos) {
+      if (data.videos && data.videos.length > 0) {
         for (let i = 0; i < data.videos.length; i++) {
           const video = data.videos[i];
           const videoFormData = new FormData();
           videoFormData.append('title', video.title);
           videoFormData.append('description', video.description || '');
+
           if (video.video_file?.[0]) {
             videoFormData.append('video_file', video.video_file[0]);
           }
 
-          const videoUrl = `/api/admin/courses/${courseId}/videos`;
-          const videoResponse = await axiosWithAuth(videoUrl, {
+          // If a quiz exists for this video, stringify and append it.
+          if (video.quiz) {
+            videoFormData.append('quiz', JSON.stringify(video.quiz));
+          }
+
+          const videoUrl = `/api/v1/courses/${courseId}/videos`;
+          await axiosWithAuth(videoUrl, {
             method: 'POST',
             data: videoFormData,
             onUploadProgress: (progressEvent: AxiosProgressEvent) => {
@@ -217,18 +223,6 @@ const AdminCourses = () => {
               }
             }
           });
-          const newVideo = videoResponse.data as Video;
-
-          if (video.quiz) {
-            const quizPayload = { ...video.quiz, course_id: courseId };
-            const quizUrl = `/api/admin/quizzes`;
-            const quizResponse = await fetchWithAuth(quizUrl, { method: 'POST', body: JSON.stringify(quizPayload) });
-            interface Quiz { id: string; }
-            const newQuiz = await handleApiResponse(quizResponse) as Quiz;
-            
-            const associateUrl = `/api/admin/videos/${newVideo._id}/quiz/${newQuiz.id}`;
-            await fetchWithAuth(associateUrl, { method: 'PATCH' });
-          }
         }
       }
       return newOrUpdatedCourse;
@@ -260,7 +254,7 @@ const AdminCourses = () => {
 
   // Quiz Builder Component
   const QuizBuilder = ({ videoIndex }: { videoIndex: number }) => {
-    const { control, watch, setValue } = useFormContext(); // Assumes form is wrapped in FormProvider
+    const { control, watch, setValue, register } = useFormContext(); // Use context
     const quizFieldName = `videos.${videoIndex}.quiz`;
     const { fields: questions, append: appendQuestion, remove: removeQuestion } = useFieldArray({ control, name: `${quizFieldName}.questions` });
 
@@ -274,11 +268,11 @@ const AdminCourses = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Quiz Title</Label>
-              <Input {...form.register(`videos.${videoIndex}.quiz.title` as const)} />
+              <Input {...register(`${quizFieldName}.title` as const)} />
             </div>
             <div className="space-y-2">
               <Label>Quiz Description</Label>
-              <Textarea {...form.register(`videos.${videoIndex}.quiz.description` as const)} />
+              <Textarea {...register(`${quizFieldName}.description` as const)} />
             </div>
             <hr />
             {questions.map((question, qIndex) => {
@@ -290,7 +284,7 @@ const AdminCourses = () => {
                     <Label>Question {qIndex + 1}</Label>
                     <Button type="button" variant="destructive" size="sm" onClick={() => removeQuestion(qIndex)}>Remove Question</Button>
                   </div>
-                                    <Textarea {...form.register(`videos.${videoIndex}.quiz.questions.${qIndex}.text` as const)} placeholder="Question text" />
+                                    <Textarea {...register(`${questionFieldName}.text` as const)} placeholder="Question text" />
                   <Label>Options</Label>
                   <Controller
                     control={control}
@@ -305,7 +299,7 @@ const AdminCourses = () => {
                         {options.map((option, oIndex) => (
                           <div key={option.id} className="flex items-center gap-2">
                              <RadioGroupItem value={String(oIndex)} id={`${question.id}-${oIndex}`} />
-                                                        <Input {...form.register(`${questionFieldName}.options.${oIndex}.text` as any)} placeholder={`Option ${oIndex + 1}`} className="flex-grow"/>
+                                                        <Input {...register(`${questionFieldName}.options.${oIndex}.text` as any)} placeholder={`Option ${oIndex + 1}`} className="flex-grow"/>
                             <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(oIndex)}><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         ))}
@@ -327,7 +321,8 @@ const AdminCourses = () => {
   };
 
   return (
-    <DashboardLayout userType="admin">
+    <FormProvider {...form}>
+      <DashboardLayout userType="admin">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Courses</h1>
         <Button onClick={() => { setSelectedCourse(null); form.reset(); setThumbnailPreview(null); setVideoPreviews({}); setIsDialogOpen(true); }} disabled={isUploading}>
@@ -443,6 +438,7 @@ const AdminCourses = () => {
         </AlertDialogContent>
       </AlertDialog>
     </DashboardLayout>
+   </FormProvider>
   );
 };
 

@@ -8,6 +8,7 @@ import { Loader2, Check, BookOpen, Target, ListVideo, CheckCircle2, Circle, Lock
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
+import Quiz from '@/components/Quiz';
 
 // --- TYPES ---
 interface CourseInfo {
@@ -19,12 +20,37 @@ interface CourseInfo {
   id: string;
 }
 
+interface Option {
+  id: string;
+  text: string;
+}
+
+interface Question {
+  id: string;
+  text: string;
+  options: Option[];
+}
+
+interface QuizData {
+  id: string;
+  title: string;
+  description: string;
+  questions: Question[];
+}
+
 interface VideoInfo {
   id: string;
   title: string;
-  youtube_url: string;
+  cloudinary_url: string;
   description: string | null;
-  watched: boolean;
+  completed: boolean;
+  is_accessible: boolean;
+  quiz: QuizData | null;
+  quiz_passed: boolean;
+}
+
+interface EnrollmentStatus {
+  is_enrolled: boolean;
 }
 
 interface TabContentProps {
@@ -47,7 +73,7 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
       const response = await fetcher(courseId);
       const data = await handleApiResponse(response);
       // The videos endpoint returns an array directly, not an object with a 'videos' key.
-      const contentData = dataKey === 'videos' ? data : data[dataKey];
+      const contentData = dataKey === 'videos' ? data : (data as Record<string, any>)[dataKey];
       setContent(contentData);
     } catch (err: any) {
       setError('Failed to load content. Please try refreshing.');
@@ -61,26 +87,14 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
     loadContent();
   }, [courseId, fetcher, dataKey]);
 
-  const getYouTubeEmbedUrl = (url: string) => {
-    try {
-        const urlObj = new URL(url);
-        const videoId = urlObj.searchParams.get('v');
-        return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
-    } catch (e) {
-        console.error("Invalid YouTube URL", e);
-        return '';
-    }
-  }
+
 
   const handleToggleWatched = async (videoId: string) => {
     try {
       await fetchWithAuth(`/api/courses/videos/${videoId}/complete`, { method: 'POST' });
       
-      setContent((prevContent: VideoInfo[]) =>
-        prevContent.map(v =>
-          v.id === videoId ? { ...v, watched: !v.watched } : v
-        )
-      );
+      // Reload content to get updated progress and accessibility
+      loadContent();
 
       toast({
         title: "Success",
@@ -104,31 +118,37 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
     return (
       <div className="p-4 space-y-6">
         {(content as VideoInfo[]).map((video) => (
-          <Card key={video.id} className="overflow-hidden">
+          <Card key={video.id} className={`overflow-hidden ${!video.is_accessible ? 'bg-muted/50' : ''}`}>
             <CardHeader>
               <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle>{video.title}</CardTitle>
-                  {video.description && <p className="text-muted-foreground text-sm mt-1">{video.description}</p>}
+                <div className="flex items-center gap-4">
+                  {!video.is_accessible && <Lock className="h-6 w-6 text-muted-foreground" />}
+                  <div>
+                    <CardTitle className={`${!video.is_accessible ? 'text-muted-foreground' : ''}`}>{video.title}</CardTitle>
+                    {video.description && <p className="text-muted-foreground text-sm mt-1">{video.description}</p>}
+                  </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => handleToggleWatched(video.id)} className="shrink-0 ml-4">
-                  {video.watched ? <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" /> : <Circle className="h-5 w-5 mr-2" />}
-                  {video.watched ? 'Completed' : 'Mark as Complete'}
-                </Button>
+                {video.is_accessible && (
+                  <Button variant="ghost" size="sm" onClick={() => handleToggleWatched(video.id)} className="shrink-0 ml-4">
+                    {video.completed ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground"/>}
+                    <span className="ml-2">{video.completed ? 'Completed' : 'Mark as Complete'}</span>
+                  </Button>
+                )}
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="aspect-video relative">
-                <iframe
-                  src={getYouTubeEmbedUrl(video.youtube_url)}
-                  title={video.title}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="absolute top-0 left-0 w-full h-full"
-                />
-              </div>
-            </CardContent>
+            {video.is_accessible && (
+              <CardContent>
+                <div className="aspect-video bg-muted rounded-lg overflow-hidden mb-4">
+                  <video src={video.cloudinary_url} controls width="100%" />
+                </div>
+                {video.quiz && !video.quiz_passed && 
+                  <Quiz quiz={video.quiz} onQuizComplete={loadContent} />
+                }
+                {video.quiz_passed && 
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">Quiz Passed</Badge>
+                }
+              </CardContent>
+            )}
           </Card>
         ))}
       </div>
@@ -160,7 +180,7 @@ const fetchDescription = (id: string) => fetchWithAuth(`/api/courses/courses/${i
 const fetchOutcomes = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/outcomes`);
 const fetchPrerequisites = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/prerequisites`);
 const fetchCurriculum = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/curriculum`);
-const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/my-courses/${id}/videos-with-checkpoint`);
+const fetchVideos = (id: string) => fetchWithAuth(`/api/v1/courses/${id}/videos`);
 
 // --- MAIN COMPONENT ---
 const CourseDetail = () => {
@@ -175,19 +195,22 @@ const CourseDetail = () => {
 
   useEffect(() => {
     if (!courseId) return;
-        const fetchCourseData = async () => {
+
+    const fetchCourseData = async () => {
       setIsLoading(true);
       try {
-        // Fetch course details
-        const courseDataPromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(handleApiResponse);
-        // Fetch enrollment status, gracefully handle errors for non-enrolled users
+        // Fetch course details and explicitly type the response
+        const courseDataPromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`)
+          .then(res => handleApiResponse<CourseInfo>(res));
+
+        // Fetch enrollment status and explicitly type the response
         const enrollmentStatusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`)
-          .then(handleApiResponse)
+          .then(res => handleApiResponse<EnrollmentStatus>(res))
           .catch(error => {
             // If the enrollment status endpoint fails (e.g., 404 for non-enrolled user),
             // we'll assume the user is not enrolled and log the error.
             console.warn("Enrollment status check failed (this is expected if not enrolled):", error);
-            return { is_enrolled: false };
+            return { is_enrolled: false }; // Ensure this matches the EnrollmentStatus structure
           });
 
         const [courseData, enrollmentStatus] = await Promise.all([
@@ -195,7 +218,6 @@ const CourseDetail = () => {
           enrollmentStatusPromise
         ]);
 
-        console.log('Received course data (initial fetch):', courseData);
         setCourse(courseData);
         setIsEnrolled(enrollmentStatus.is_enrolled);
 
@@ -210,6 +232,7 @@ const CourseDetail = () => {
         setIsLoading(false);
       }
     };
+
     fetchCourseData();
   }, [courseId, navigate]);
 
