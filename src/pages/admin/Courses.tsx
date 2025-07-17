@@ -253,13 +253,18 @@ const AdminCourses = () => {
   };
 
   // Quiz Builder Component
-  const QuizBuilder = ({ videoIndex }: { videoIndex: number }) => {
+  interface QuizBuilderProps {
+    videoIndex: number;
+    isOpen: boolean;
+    onOpenChange: (isOpen: boolean) => void;
+  }
+  const QuizBuilder = ({ videoIndex, isOpen, onOpenChange }: QuizBuilderProps) => {
     const { control, watch, setValue, register } = useFormContext(); // Use context
     const quizFieldName = `videos.${videoIndex}.quiz`;
     const { fields: questions, append: appendQuestion, remove: removeQuestion } = useFieldArray({ control, name: `${quizFieldName}.questions` });
 
     return (
-      <Dialog open={isQuizModalOpen} onOpenChange={setIsQuizModalOpen}>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Quiz</DialogTitle>
@@ -313,7 +318,7 @@ const AdminCourses = () => {
             <Button type="button" onClick={() => appendQuestion({ text: '', options: [{ text: '', is_correct: true }, { text: '', is_correct: false }] })}>Add Question</Button>
           </div>
           <DialogFooter>
-            <Button type="button" onClick={() => setIsQuizModalOpen(false)}>Done</Button>
+            <Button type="button" onClick={() => onOpenChange(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -420,7 +425,13 @@ const AdminCourses = () => {
         </DialogContent>
       </Dialog>
 
-      {currentQuizIndex !== null && <QuizBuilder videoIndex={currentQuizIndex} />}
+      {currentQuizIndex !== null && (
+        <QuizBuilder 
+          videoIndex={currentQuizIndex} 
+          isOpen={isQuizModalOpen}
+          onOpenChange={setIsQuizModalOpen} 
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
