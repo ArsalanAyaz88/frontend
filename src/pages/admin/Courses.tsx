@@ -130,6 +130,15 @@ const OptionsBuilder = ({ videoIndex, questionIndex }: OptionsBuilderProps) => {
           </div>
         ))}
       </RadioGroup>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => append({ text: '', is_correct: false })}
+      >
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Option
+      </Button>
     </div>
   );
 };
