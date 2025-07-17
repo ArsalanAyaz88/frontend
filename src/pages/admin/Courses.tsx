@@ -3,7 +3,7 @@ import { useForm, useFieldArray, Controller, useFormContext, FormProvider, UseFo
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AxiosProgressEvent } from 'axios';
 import * as z from 'zod';
-import { PlusCircle, Trash2, FileQuestion } from 'lucide-react';
+import { PlusCircle, Trash2, FileQuestion, Pencil } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { 
@@ -18,6 +18,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+
+// Define the shape of the quiz form data
+interface Question {
+  question: string;
+  options: string[];
+  correct_answer: string;
+}
+
+interface QuizFormData {
+  title: string;
+  description: string;
+  course_id: string;
+  due_date: string | null;
+  questions: Question[];
+}
 import { axiosWithAuth, fetchWithAuth, handleApiResponse } from '@/lib/api';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
@@ -85,12 +100,23 @@ const courseFormSchema = z.object({
   videos: z.array(videoSchema).optional(),
 });
 
+const videoEditSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().optional(),
+});
+
+type VideoEditFormData = z.infer<typeof videoEditSchema>;
+
 type CourseFormData = z.infer<typeof courseFormSchema>;
 
 interface QuizBuilderProps {
   videoIndex: number;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  existingVideo: Video | null;
+  mainFormMethods: UseFormReturn<CourseFormData>;
+  quizFormMethods: UseFormReturn<QuizFormData>;
+  onQuizSubmit: (data: QuizFormData) => void;
 }
 
 interface OptionsBuilderProps {
@@ -143,7 +169,15 @@ const OptionsBuilder = ({ videoIndex, questionIndex }: OptionsBuilderProps) => {
   );
 };
 
-const QuizBuilder = ({ videoIndex, isOpen, onOpenChange }: QuizBuilderProps) => {
+const QuizBuilder = ({ 
+  videoIndex, 
+  isOpen, 
+  onOpenChange, 
+  existingVideo,
+  mainFormMethods,
+  quizFormMethods,
+  onQuizSubmit
+}: QuizBuilderProps) => {
   const { control, register, watch, setValue, formState: { errors } } = useFormContext<CourseFormData>();
   const quizFieldName = `videos.${videoIndex}.quiz`;
   const { fields: questions, append: appendQuestion, remove: removeQuestion } = useFieldArray({ control, name: `${quizFieldName}.questions` });
@@ -183,7 +217,19 @@ const QuizBuilder = ({ videoIndex, isOpen, onOpenChange }: QuizBuilderProps) => 
   );
 };
 
-const AdminCourses = () => {
+interface Quiz {
+  title: string;
+  description?: string;
+  questions: {
+    text: string;
+    options: {
+      text?: string;
+      is_correct?: boolean;
+    }[];
+  }[];
+}
+
+const AdminCourses: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -191,6 +237,11 @@ const AdminCourses = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
+  const [videoToDelete, setVideoToDelete] = useState<{ courseId: string; videoId: string } | null>(null);
+  const [isDeleteVideoDialogOpen, setIsDeleteVideoDialogOpen] = useState(false);
+  const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+  const [editingQuizForVideo, setEditingQuizForVideo] = useState<Video | null>(null);
+  const [isEditVideoDialogOpen, setIsEditVideoDialogOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [videoPreviews, setVideoPreviews] = useState<Record<number, string>>({});
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
@@ -213,6 +264,24 @@ const AdminCourses = () => {
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'videos' });
+
+  const quizForm = useForm<QuizFormData>({
+    resolver: zodResolver(quizSchema.extend({
+      course_id: z.string(),
+      due_date: z.string().nullable(),
+    })),
+    defaultValues: {
+      title: '',
+      description: '',
+      questions: [],
+      course_id: '',
+      due_date: null,
+    },
+  });
+
+  const videoEditForm = useForm<VideoEditFormData>({
+    resolver: zodResolver(videoEditSchema),
+  });
 
   const fetchCourses = async () => {
     setLoading(true);
@@ -257,6 +326,81 @@ const AdminCourses = () => {
     }
   };
 
+  const handleDeleteVideo = async () => {
+    if (!videoToDelete) return;
+
+    try {
+      await fetchWithAuth(`/api/v1/videos/${videoToDelete.videoId}`, { method: 'DELETE' });
+      toast.success('Video deleted successfully!');
+      // Refresh course details to show updated video list
+      if (selectedCourse) {
+        handleEdit(selectedCourse._id);
+      }
+    } catch (error) {
+      toast.error('Failed to delete video.');
+    } finally {
+      setVideoToDelete(null);
+    }
+  };
+
+  const openQuizModalForExistingVideo = async (video: Video) => {
+    setEditingQuizForVideo(video);
+    if (video.quiz_id) {
+      try {
+        const response = await fetchWithAuth(`/api/v1/videos/${video._id}/quiz`);
+        const quizData = await handleApiResponse<Quiz>(response);
+        quizForm.reset({
+          ...quizData,
+          questions: quizData.questions.map((q) => {
+            const correctOption = q.options.find((opt) => opt.is_correct);
+            return {
+              question: q.text,
+              options: q.options.map((opt) => opt.text),
+              correct_answer: correctOption ? correctOption.text : '',
+            };
+          }),
+        });
+      } catch (error) {
+        toast.error('Failed to fetch existing quiz data.');
+        quizForm.reset({}); // Reset to empty form on error
+      }
+    } else {
+      quizForm.reset({}); // No quiz exists, open an empty form
+    }
+    setIsQuizModalOpen(true);
+  };
+
+  const onUpdateVideoSubmit = async (data: VideoEditFormData) => {
+    if (!editingVideo) return;
+    try {
+      await axiosWithAuth(`/api/v1/videos/${editingVideo._id}`, {
+        method: 'PATCH',
+        data,
+      });
+      toast.success('Video updated successfully!');
+      if (selectedCourse) {
+        handleEdit(selectedCourse._id);
+      }
+    } catch (error) {
+      toast.error('Failed to update video.');
+    } finally {
+      setIsEditVideoDialogOpen(false);
+      setEditingVideo(null);
+    }
+  };
+
+  const handleRemoveQuiz = async (videoId: string) => {
+    try {
+      await fetchWithAuth(`/api/v1/videos/${videoId}/quiz`, { method: 'DELETE' });
+      toast.success('Quiz removed successfully!');
+      if (selectedCourse) {
+        handleEdit(selectedCourse._id);
+      }
+    } catch (error) {
+      toast.error('Failed to remove quiz.');
+    }
+  };
+
   const handleDelete = async () => {
     if (!courseToDelete) return;
     try {
@@ -294,8 +438,8 @@ const AdminCourses = () => {
       });
 
       const url = selectedCourse
-        ? `/api/v1/admin/courses/${selectedCourse._id}`
-        : '/api/v1/admin/courses';
+        ? `/api/admin/courses/${selectedCourse._id}`
+        : '/api/admin/courses';
       const method = selectedCourse ? 'PUT' : 'POST';
 
       const courseResponse = await axiosWithAuth(url, {
@@ -453,7 +597,60 @@ const AdminCourses = () => {
               {/* Video Upload Section */}
               <div className="space-y-4">
                 <Label>{selectedCourse ? "Existing Videos" : "Upload Videos"}</Label>
-                {selectedCourse?.videos?.map(v => <div key={v._id} className="text-sm p-2 bg-gray-100 rounded">{v.title}</div>)}
+                {selectedCourse?.videos?.map(v => (
+                  <div key={v._id} className="flex items-center justify-between text-sm p-2 bg-gray-100 rounded">
+                    <span>{v.title}</span>
+                    <div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => {
+                          setEditingVideo(v);
+                          videoEditForm.reset({ title: v.title, description: v.description || '' });
+                          setIsEditVideoDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => openQuizModalForExistingVideo(v)}
+                      >
+                        <FileQuestion className="h-4 w-4" />
+                      </Button>
+                      {v.quiz_id && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="icon"
+                          className="h-6 w-6 text-red-500"
+                          onClick={() => handleRemoveQuiz(v._id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => {
+                          if (selectedCourse) {
+                            setVideoToDelete({ courseId: selectedCourse._id, videoId: v._id });
+                            setIsDeleteVideoDialogOpen(true);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
                 
                 {fields.map((field, index) => (
                   <div key={field.id} className="p-4 border rounded-lg space-y-4 relative">
@@ -474,9 +671,11 @@ const AdminCourses = () => {
                       <div className="space-y-2">
                         {videoPreviews[index] && <video src={videoPreviews[index]} controls className="w-full rounded-lg" />}
                         {uploadProgress[`video_${index}`] > 0 && <Progress value={uploadProgress[`video_${index}`]} className="w-full mt-2" />}
-                        <Button type="button" variant="secondary" className="w-full mt-2" onClick={() => openQuizModal(index)}>
-                          <FileQuestion className="mr-2 h-4 w-4" /> {form.watch(`videos.${index}.quiz`) ? 'Edit Quiz' : 'Add Quiz'}
-                        </Button>
+                        <div className="flex space-x-2 mt-2">
+                          <Button type="button" variant="secondary" className="w-full" onClick={() => openQuizModal(index)}>
+                            <FileQuestion className="mr-2 h-4 w-4" /> {form.watch(`videos.${index}.quiz`) ? 'Edit Quiz' : 'Add Quiz'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -493,15 +692,104 @@ const AdminCourses = () => {
           </DialogContent>
         </Dialog>
 
-        {currentQuizIndex !== null && (
+        {(currentQuizIndex !== null || editingQuizForVideo) && (
           <QuizBuilder 
-            videoIndex={currentQuizIndex} 
+            videoIndex={editingQuizForVideo?.cloudinary_url 
+              ? (form.getValues('videos') || []).findIndex(v => v.video_preview === editingQuizForVideo.cloudinary_url)
+              : currentQuizIndex as number}
+            existingVideo={editingQuizForVideo}
             isOpen={isQuizModalOpen}
-            onOpenChange={setIsQuizModalOpen}
+            onOpenChange={(isOpen) => {
+              if (!isOpen) {
+                setEditingQuizForVideo(null);
+                setCurrentQuizIndex(null);
+              }
+              setIsQuizModalOpen(isOpen);
+            }}
+            mainFormMethods={form}
+            quizFormMethods={quizForm}
+                        onQuizSubmit={async (quizData: QuizFormData) => {
+              // Transform the form data to match the API's expected format
+              const transformedData = {
+                title: quizData.title,
+                description: quizData.description,
+                questions: quizData.questions.map(q => ({
+                  text: q.question,  // Map 'question' to 'text'
+                  options: q.options.map(opt => ({
+                    text: opt,
+                    is_correct: opt === q.correct_answer
+                  }))
+                }))
+              };
+
+              if (editingQuizForVideo) {
+                // Logic to create/update quiz for an existing video
+                try {
+                  const quizResponse = await axiosWithAuth(`/api/v1/quizzes`, { 
+                    method: 'POST', 
+                    data: transformedData 
+                  });
+                  const newQuiz = quizResponse.data;
+                  await axiosWithAuth(`/api/v1/videos/${editingQuizForVideo._id}/quiz/${newQuiz._id}`, { 
+                    method: 'PATCH' 
+                  });
+                  toast.success('Quiz saved successfully!');
+                  if (selectedCourse) handleEdit(selectedCourse._id);
+                } catch (error) {
+                  console.error('Error saving quiz:', error);
+                  toast.error('Failed to save quiz.');
+                }
+              } else if (currentQuizIndex !== null) {
+                // For new videos, we need to transform the data back to the form format
+                form.setValue(`videos.${currentQuizIndex}.quiz`, transformedData);
+              }
+              setIsQuizModalOpen(false);
+              setEditingQuizForVideo(null);
+              setCurrentQuizIndex(null);
+            }}
           />
         )}
 
-        {/* Delete Confirmation Dialog */}
+        {/* Video Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteVideoDialogOpen} onOpenChange={setIsDeleteVideoDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Video?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the video and any associated quiz. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setVideoToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteVideo}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Video Edit Dialog */}
+        <Dialog open={isEditVideoDialogOpen} onOpenChange={setIsEditVideoDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Video</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={videoEditForm.handleSubmit(onUpdateVideoSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-video-title">Title</Label>
+                <Input id="edit-video-title" {...videoEditForm.register('title')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-video-description">Description</Label>
+                <Textarea id="edit-video-description" {...videoEditForm.register('description')} />
+              </div>
+              <DialogFooter>
+                <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Course Delete Confirmation Dialog */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
