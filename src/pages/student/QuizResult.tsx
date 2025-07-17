@@ -103,7 +103,7 @@ const QuizResult = () => {
             <h3 className="text-2xl font-semibold border-b pb-2">Review Your Answers</h3>
             {result.answers.map((ans, index) => (
               <div key={ans.question_id} className={`p-4 rounded-lg ${ans.is_correct ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
-                <p className="font-semibold mb-2">{index + 1}. {ans.question_text}</p>
+                <p className="font-semibold mb-2 text-black">{index + 1}. {ans.question_text}</p>
                 <div className="flex items-center space-x-2">
                   {ans.is_correct ? <CheckCircle className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-red-600" />}
                   <p>Your answer: <span className={ans.is_correct ? 'text-green-700' : 'text-red-700'}>{ans.selected_option_text}</span></p>
