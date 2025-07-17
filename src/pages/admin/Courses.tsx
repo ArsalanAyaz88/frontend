@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 // Components
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
+import { Form, FormControl } from '@/components/ui/form';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -145,7 +146,7 @@ export default function AdminCourses() {
       }
 
       const savedCourse = await response.json();
-      const courseId = savedCourse.course?._id || savedCourse._id;
+      const courseId = savedCourse.id || savedCourse.course?._id || savedCourse._id;
 
       if (!courseId) {
         throw new Error('Failed to get course ID');
@@ -465,14 +466,14 @@ export default function AdminCourses() {
                         
                         <div className="space-y-2">
                           <Label>Video File</Label>
-                          <FileUploader
-                            onUpload={(files) => handleVideoChange(files, index)}
-                            accept={{
-                              'video/*': ['.mp4', '.webm', '.mov']
-                            }}
-                            maxSize={500 * 1024 * 1024} // 500MB
-                            multiple={false}
-                          />
+                          <FormControl>
+                            <FileUploader
+                              onUpload={(files) => handleVideoChange(files, index)}
+                              value={field.value}
+                              maxSize={2 * 1024 * 1024 * 1024} // 2GB
+                              multiple={false}
+                            />
+                          </FormControl>
                           {videoPreviews[index] && (
                             <div className="mt-2">
                               <p className="text-sm text-muted-foreground mb-1">Preview:</p>
