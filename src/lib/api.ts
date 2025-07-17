@@ -1,5 +1,6 @@
 // src/lib/api.ts
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { AxiosRequestConfig, AxiosInstance } from 'axios';
+
 export class UnauthorizedError extends Error {
   constructor(message = 'Unauthorized') {
     super(message);
@@ -7,18 +8,37 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// Extend the AxiosInstance type to include our source method
+declare module 'axios' {
+  interface AxiosInstance {
+    source(): { token: any; cancel: (message?: string) => void };
+  }
+}
+
+
 interface UserSession {
   access_token: string;
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
-export const axiosWithAuth = async (url: string, options: AxiosRequestConfig = {}): Promise<any> => {
-  const headers: Record<string, any> = { ...options.headers };
+// Create axios instance with default config
+const api: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+});
 
+// Add cancel token source method
+api.source = () => {
+  return axios.CancelToken.source();
+};
+
+// Add request interceptor for auth token
+api.interceptors.request.use((config) => {
   // Try to get admin token first, then fall back to user token
   let token: string | null = null;
   const adminToken = localStorage.getItem('admin_access_token');
+  
   if (adminToken) {
     token = adminToken;
   } else {
@@ -26,7 +46,7 @@ export const axiosWithAuth = async (url: string, options: AxiosRequestConfig = {
     if (userSessionString) {
       try {
         const userSession: UserSession = JSON.parse(userSessionString);
-        if (userSession && userSession.access_token) {
+        if (userSession?.access_token) {
           token = userSession.access_token;
         }
       } catch (e) {
@@ -36,15 +56,40 @@ export const axiosWithAuth = async (url: string, options: AxiosRequestConfig = {
   }
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  return config;
+});
 
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      throw new UnauthorizedError();
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Export the configured axios instance
+export { api };
+
+// Keep the existing axiosWithAuth for backward compatibility
+export const axiosWithAuth = async (
+  url: string, 
+  options: AxiosRequestConfig = {}
+): Promise<any> => {
   try {
-    const response = await axios({ ...options, url: fullUrl, headers });
+    const response = await api({
+      ...options,
+      url,
+      baseURL: url.startsWith('http') ? undefined : API_BASE_URL,
+    });
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       throw new UnauthorizedError();
     }
