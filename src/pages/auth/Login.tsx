@@ -49,16 +49,18 @@ const Login = () => {
       console.log('Login Response:', data);
 
       // Store user session data, including the access token from the response
-      const userSession = {
-        email: email,
-        role: userType,
-        full_name: data.full_name || email.split('@')[0], // Fallback to email prefix if no full_name
-        access_token: data.access_token, // Store the token
-      };
-      localStorage.setItem('user', JSON.stringify(userSession));
-
-      if (userType === 'admin' && data.access_token) {
+      if (userType === 'admin') {
+        // For admin, only set the admin-specific token
         localStorage.setItem('admin_access_token', data.access_token);
+      } else {
+        // For students, set the general user session
+        const userSession = {
+          email: email,
+          role: 'student',
+          full_name: data.full_name || email.split('@')[0],
+          access_token: data.access_token,
+        };
+        localStorage.setItem('user', JSON.stringify(userSession));
       }
 
       toast({
