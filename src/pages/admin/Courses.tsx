@@ -416,8 +416,10 @@ const AdminCourses: React.FC = () => {
   };
 
   const onSubmit = async (data: CourseFormData) => {
+    console.log('Form submitted with data:', data);
     setIsUploading(true);
     const promise = async () => {
+      try {
       const coursePayload = { ...data };
       // Videos are uploaded separately, so we remove them from the main payload
       delete coursePayload.videos;
@@ -479,7 +481,11 @@ const AdminCourses: React.FC = () => {
           });
         }
       }
-      return newOrUpdatedCourse;
+        return newOrUpdatedCourse;
+      } catch (error) {
+        console.error('Error in form submission:', error);
+        throw error; // Re-throw to be caught by toast.promise
+      }
     };
 
     toast.promise(promise(), {
@@ -506,14 +512,44 @@ const AdminCourses: React.FC = () => {
     setIsQuizModalOpen(true);
   };
 
+  // Test function to debug form submission
+  const handleTestSubmit = async () => {
+    try {
+      const formData = form.getValues();
+      console.log('Form values:', formData);
+      await onSubmit(formData);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast.error('Failed to submit form. Check console for details.');
+    }
+  };
+
   return (
     <FormProvider {...form}>
       <DashboardLayout userType="admin">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Courses</h1>
-          <Button onClick={() => { setSelectedCourse(null); form.reset(); setThumbnailPreview(null); setVideoPreviews({}); setIsDialogOpen(true); }} disabled={isUploading}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Create Course
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleTestSubmit}
+              disabled={isUploading}
+            >
+              Test Form Submit
+            </Button>
+            <Button 
+              onClick={() => { 
+                setSelectedCourse(null); 
+                form.reset(); 
+                setThumbnailPreview(null); 
+                setVideoPreviews({}); 
+                setIsDialogOpen(true);
+              }}
+              disabled={isUploading}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Course
+            </Button>
+          </div>
         </div>
 
         {/* Course List Table */}
