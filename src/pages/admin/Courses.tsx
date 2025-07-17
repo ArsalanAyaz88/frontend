@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { PlusCircle, Trash2, Edit, MoreHorizontal, Eye } from 'lucide-react';
@@ -42,13 +42,11 @@ import { Link } from 'react-router-dom';
 
 // Types
 interface Course {
-  id: string;
+  _id: string;
   title: string;
   price: number;
   total_enrollments: number;
-  status: string;
   created_at: string;
-  // For edit form
   description?: string;
   thumbnail_url?: string;
   difficulty_level?: string;
@@ -56,10 +54,11 @@ interface Course {
   prerequisites?: string;
   curriculum?: string;
   videos?: { youtube_url: string; title: string; description: string }[];
+  is_published: boolean;
 }
 
 const videoSchema = z.object({
-  youtube_url: z.string().url({ message: 'Invalid YouTube URL' }),
+  youtube_url: z.string().url({ message: "Invalid YouTube URL" }).optional(),
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
 });
@@ -112,11 +111,9 @@ const AdminCourses = () => {
     try {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/courses?skip=0&limit=100', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await handleApiResponse(response);
+      const data = await handleApiResponse(response) as Course[];
       setCourses(data);
     } catch (error) {
       toast.error('Failed to fetch courses.');
@@ -133,11 +130,9 @@ const AdminCourses = () => {
     try {
       const token = localStorage.getItem('admin_access_token');
       const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      const courseDetails = await handleApiResponse(response);
+      const courseDetails = await handleApiResponse(response) as Course;
       form.reset({
         title: courseDetails.title,
         description: courseDetails.description || '',
@@ -147,7 +142,9 @@ const AdminCourses = () => {
         outcomes: courseDetails.outcomes || '',
         prerequisites: courseDetails.prerequisites || '',
         curriculum: courseDetails.curriculum || '',
-        videos: courseDetails.videos && courseDetails.videos.length > 0 ? courseDetails.videos : [{ youtube_url: '', title: '', description: '' }],
+        videos: courseDetails.videos && courseDetails.videos.length > 0
+          ? courseDetails.videos.map(v => ({ youtube_url: v.youtube_url, title: v.title, description: v.description }))
+          : [{ youtube_url: '', title: '', description: '' }],
       });
       setSelectedCourse(courseDetails);
       setThumbnailPreview(courseDetails.thumbnail_url || null);
@@ -159,24 +156,15 @@ const AdminCourses = () => {
 
   const handleDelete = async () => {
     if (!courseToDelete) return;
-    console.log(`Attempting to delete course with ID: ${courseToDelete}`);
     try {
-      console.log('Before fetchWithAuth');
       const token = localStorage.getItem('admin_access_token');
-      const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseToDelete}`, {
+      await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseToDelete}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      console.log('After fetchWithAuth, response:', response);
-      await handleApiResponse(response);
-      console.log('After handleApiResponse');
       toast.success('Course deleted successfully!');
-      // Instantly remove the deleted course from the UI
-      setCourses(prev => prev.filter(course => course.id !== courseToDelete));
+      setCourses(prev => prev.filter(course => course._id !== courseToDelete));
     } catch (error) {
-      console.error('Error during delete:', error);
       toast.error('Failed to delete course.');
     } finally {
       setIsDeleteDialogOpen(false);
@@ -186,44 +174,25 @@ const AdminCourses = () => {
 
   const onSubmit = async (data: CourseFormData) => {
     const formData = new FormData();
-
-    const { videos, thumbnail, ...courseData } = data;
-
-    Object.entries(courseData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
-
-
-    const token = localStorage.getItem('admin_access_token');
-    if (!token) {
-      toast.error('Authentication error. Please log in again.');
-      return;
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('price', String(data.price));
+    if (data.thumbnail && data.thumbnail.length > 0) {
+      formData.append('thumbnail', data.thumbnail[0]);
     }
-
-    // The thumbnail is now uploaded on file selection. 
-    // The final URL is stored in the thumbnailPreview state.
-    const { thumbnail: _thumbnail, ...restOfData } = data;
-    const coursePayload = {
-      ...restOfData,
-      thumbnail_url: thumbnailPreview,
-    };
-    
-    // 3. Submit course data
-    const url = selectedCourse
-      ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse.id}`
-      : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
+    formData.append('difficulty_level', data.difficulty_level || '');
+    formData.append('outcomes', data.outcomes || '');
+    formData.append('prerequisites', data.prerequisites || '');
+    formData.append('curriculum', data.curriculum || '');
+    formData.append('videos', JSON.stringify(data.videos)); // Send videos as a JSON string
 
     const promise = async () => {
-      const response = await fetchWithAuth(url, {
-        method: selectedCourse ? 'PUT' : 'POST',
-        body: JSON.stringify(coursePayload),
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const url = selectedCourse
+        ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse._id}`
+        : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
+      const method = selectedCourse ? 'PUT' : 'POST';
+
+      const response = await fetchWithAuth(url, { method, body: formData });
       return handleApiResponse(response);
     };
 
@@ -231,16 +200,12 @@ const AdminCourses = () => {
       loading: selectedCourse ? 'Updating course...' : 'Creating course...',
       success: () => {
         setIsDialogOpen(false);
-        setSelectedCourse(null);
-        setThumbnailPreview(null); // Clear preview on success
         form.reset();
-        fetchCourses(); // Re-fetch courses to update the list
+        setThumbnailPreview(null);
+        fetchCourses();
         return selectedCourse ? 'Course updated successfully!' : 'Course created successfully!';
       },
-      error: (err) => {
-        console.error("Submission error:", err);
-        return `Error: ${err.message || 'An unknown error occurred'}`;
-      },
+      error: (err) => (err as Error).message || 'An error occurred.',
     });
   };
 
@@ -258,7 +223,71 @@ const AdminCourses = () => {
         </Button>
       </div>
 
-      {/* Course Form Dialog */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Enrollments</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created At</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
+            ) : courses.length > 0 ? (
+              courses.map((course) => (
+                <TableRow key={course._id}>
+                  <TableCell className="font-medium">{course.title}</TableCell>
+                  <TableCell>${course.price}</TableCell>
+                  <TableCell>{course.total_enrollments}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs ${course.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {course.is_published ? 'Published' : 'Draft'}
+                    </span>
+                  </TableCell>
+                  <TableCell>{new Date(course.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(course._id)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          <span>Edit</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setCourseToDelete(course._id);
+                          setIsDeleteDialogOpen(true);
+                        }}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Delete</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to={`/admin/courses/${course._id}/dashboard`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            <span>View Dashboard</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow><TableCell colSpan={6} className="text-center">No courses found.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -284,101 +313,41 @@ const AdminCourses = () => {
                 <Input id="price" type="number" {...form.register('price')} />
                 {form.formState.errors.price && <p className="text-red-500 text-sm">{form.formState.errors.price.message}</p>}
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="thumbnail" className="text-right">
-                  Thumbnail
-                </Label>
-                <Input
-                  id="thumbnail"
-                  type="file"
-                  className="col-span-3"
-                  accept="image/*"
-                  {...form.register('thumbnail')}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    form.register('thumbnail').onChange(e); // Inform react-hook-form
-
-                    if (!file) {
-                      // If file selection is cancelled, revert to the original thumbnail
-                      setThumbnailPreview(selectedCourse?.thumbnail_url || null);
-                      return;
-                    }
-
-                    const uploadFormData = new FormData();
-                    uploadFormData.append('file', file);
-                    const token = localStorage.getItem('admin_access_token');
-                    if (!token) {
-                      toast.error('Authentication error. Please log in again.');
-                      return;
-                    }
-
-                    try {
-                      toast.info('Uploading thumbnail...');
-                      const uploadResponse = await fetchWithAuth('https://student-portal-lms-seven.vercel.app/api/admin/upload/image', {
-                        method: 'POST',
-                        body: uploadFormData,
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                        },
-                      });
-                      const uploadResult = await handleApiResponse(uploadResponse);
-                      if (uploadResult.url) {
-                        setThumbnailPreview(uploadResult.url);
-                        toast.success('Thumbnail preview updated!');
-                      } else {
-                        throw new Error("URL not found in response");
-                      }
-                    } catch (error) {
-                      toast.error('Failed to upload thumbnail.');
-                      console.error("Thumbnail upload error:", error);
-                      // Revert to original on failure
-                      setThumbnailPreview(selectedCourse?.thumbnail_url || null);
-                    }
-                  }}
-                />
+              <div className="space-y-2">
+                <Label htmlFor="thumbnail">Thumbnail</Label>
+                <Input id="thumbnail" type="file" accept="image/*" {...form.register('thumbnail')} onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setThumbnailPreview(URL.createObjectURL(file));
+                  }
+                  form.setValue('thumbnail', e.target.files);
+                }}/>
+                {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail Preview" className="mt-2 max-h-40 rounded-lg border object-cover"/>}
+                {form.formState.errors.thumbnail && <p className="text-red-500 text-sm">{form.formState.errors.thumbnail.message as string}</p>}
               </div>
-
-              {(thumbnailPreview || (selectedCourse && selectedCourse.thumbnail_url)) && (
-                <div className="grid grid-cols-4 items-center gap-4 mt-2">
-                  <Label className="text-right">Preview</Label>
-                  <div className="col-span-3">
-                    <img
-                      src={thumbnailPreview || selectedCourse?.thumbnail_url}
-                      alt="Thumbnail Preview"
-                      className="max-h-40 rounded-lg border object-cover"
-                    />
-                  </div>
-                </div>
-              )}
-              {form.formState.errors.thumbnail && <p className="text-red-500 text-sm col-span-4 text-right">{form.formState.errors.thumbnail.message as string}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="difficulty_level">Difficulty Level</Label>
               <Input id="difficulty_level" {...form.register('difficulty_level')} />
-              {form.formState.errors.difficulty_level && <p className="text-red-500 text-sm">{form.formState.errors.difficulty_level.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="outcomes">Outcomes</Label>
               <Textarea id="outcomes" {...form.register('outcomes')} />
-              {form.formState.errors.outcomes && <p className="text-red-500 text-sm">{form.formState.errors.outcomes.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="prerequisites">Prerequisites</Label>
               <Textarea id="prerequisites" {...form.register('prerequisites')} />
-              {form.formState.errors.prerequisites && <p className="text-red-500 text-sm">{form.formState.errors.prerequisites.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="curriculum">Curriculum</Label>
               <Textarea id="curriculum" {...form.register('curriculum')} />
-              {form.formState.errors.curriculum && <p className="text-red-500 text-sm">{form.formState.errors.curriculum.message}</p>}
             </div>
 
-            {/* Videos Section */}
             <div className="space-y-4">
               <Label>Videos</Label>
               {fields.map((field, index) => (
-                <div key={field.id} className="p-4 border rounded-md relative space-y-2">
-                  <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2" onClick={() => remove(index)}>
+                <div key={field.id} className="p-4 border rounded-lg space-y-2 relative mb-4">
+                  <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => remove(index)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   <div>
@@ -388,13 +357,12 @@ const AdminCourses = () => {
                   </div>
                   <div>
                     <Label htmlFor={`videos.${index}.youtube_url`}>YouTube URL</Label>
-                    <Input id={`videos.${index}.youtube_url`} {...form.register(`videos.${index}.youtube_url`)} />
+                    <Input id={`videos.${index}.youtube_url`} {...form.register(`videos.${index}.youtube_url`)} placeholder="https://www.youtube.com/watch?v=..."/>
                     {form.formState.errors.videos?.[index]?.youtube_url && <p className="text-red-500 text-sm">{form.formState.errors.videos?.[index]?.youtube_url?.message}</p>}
                   </div>
                   <div>
                     <Label htmlFor={`videos.${index}.description`}>Video Description</Label>
                     <Textarea id={`videos.${index}.description`} {...form.register(`videos.${index}.description`)} />
-                    {form.formState.errors.videos?.[index]?.description && <p className="text-red-500 text-sm">{form.formState.errors.videos?.[index]?.description?.message}</p>}
                   </div>
                 </div>
               ))}
@@ -407,13 +375,12 @@ const AdminCourses = () => {
               <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
               </DialogClose>
-              <Button type="submit">{selectedCourse ? 'Update' : 'Create'}</Button>
+              <Button type="submit">{selectedCourse ? 'Save Changes' : 'Create Course'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -428,65 +395,6 @@ const AdminCourses = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Courses Table */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Enrollments</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
-            ) : courses.length > 0 ? (
-              courses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell className="font-medium">{course.title}</TableCell>
-                  <TableCell>${course.price}</TableCell>
-                  <TableCell>{course.total_enrollments}</TableCell>
-                  <TableCell>{course.status}</TableCell>
-                  <TableCell>{new Date(course.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link to={`/admin/courses/${course.id}`} className="flex items-center">
-                              <Eye className="mr-2 h-4 w-4" /> View Details
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEdit(course.id)}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setCourseToDelete(course.id);
-                            setIsDeleteDialogOpen(true);
-                          }} className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow><TableCell colSpan={6} className="text-center">No courses found.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
     </DashboardLayout>
   );
 };
