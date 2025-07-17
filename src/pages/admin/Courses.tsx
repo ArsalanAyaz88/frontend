@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { PlusCircle, Trash2, Edit, MoreHorizontal, Eye } from 'lucide-react';
@@ -41,6 +41,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Link } from 'react-router-dom';
 
 // Types
+interface Video {
+  cloudinary_url: string;
+  title: string;
+  description: string;
+}
+
 interface Course {
   _id: string;
   title: string;
@@ -53,12 +59,18 @@ interface Course {
   outcomes?: string;
   prerequisites?: string;
   curriculum?: string;
-  videos?: { youtube_url: string; title: string; description: string }[];
+  videos?: Video[];
   is_published: boolean;
 }
 
 const videoSchema = z.object({
-  youtube_url: z.string().url({ message: "Invalid YouTube URL" }).optional(),
+  video_file: z.any()
+    .refine((files) => files?.length === 1, 'Video file is required.')
+    .refine((files) => files?.[0]?.size <= 50000000, `Max file size is 50MB.`)
+    .refine(
+      (files) => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'].includes(files?.[0]?.type),
+      'Unsupported file format. Please upload an MP4, MOV, AVI, or MKV.'
+    ),
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
 });
@@ -72,7 +84,7 @@ const courseFormSchema = z.object({
   outcomes: z.string().optional(),
   prerequisites: z.string().optional(),
   curriculum: z.string().optional(),
-  videos: z.array(videoSchema).min(1, 'At least one video is required'),
+  videos: z.array(videoSchema).optional(),
 });
 
 type CourseFormData = z.infer<typeof courseFormSchema>;
@@ -97,7 +109,7 @@ const AdminCourses = () => {
       outcomes: '',
       prerequisites: '',
       curriculum: '',
-      videos: [{ youtube_url: '', title: '', description: '' }],
+      videos: [],
     },
   });
 
@@ -142,9 +154,7 @@ const AdminCourses = () => {
         outcomes: courseDetails.outcomes || '',
         prerequisites: courseDetails.prerequisites || '',
         curriculum: courseDetails.curriculum || '',
-        videos: courseDetails.videos && courseDetails.videos.length > 0
-          ? courseDetails.videos.map(v => ({ youtube_url: v.youtube_url, title: v.title, description: v.description }))
-          : [{ youtube_url: '', title: '', description: '' }],
+        videos: [], // Videos are handled separately, not populated in the form for editing
       });
       setSelectedCourse(courseDetails);
       setThumbnailPreview(courseDetails.thumbnail_url || null);
@@ -173,27 +183,55 @@ const AdminCourses = () => {
   };
 
   const onSubmit = async (data: CourseFormData) => {
-    const formData = new FormData();
-    formData.append('title', data.title);
-    formData.append('description', data.description);
-    formData.append('price', String(data.price));
-    if (data.thumbnail && data.thumbnail.length > 0) {
-      formData.append('thumbnail', data.thumbnail[0]);
-    }
-    formData.append('difficulty_level', data.difficulty_level || '');
-    formData.append('outcomes', data.outcomes || '');
-    formData.append('prerequisites', data.prerequisites || '');
-    formData.append('curriculum', data.curriculum || '');
-    formData.append('videos', JSON.stringify(data.videos)); // Send videos as a JSON string
-
     const promise = async () => {
+      // 1. Create/Update course metadata first
+      const coursePayload = { ...data };
+      delete coursePayload.videos; // Videos are uploaded separately
+
+      const courseFormData = new FormData();
+      for (const key in coursePayload) {
+        const value = coursePayload[key as keyof typeof coursePayload];
+        if (key === 'thumbnail' && value && (value as FileList).length > 0) {
+          courseFormData.append(key, (value as FileList)[0]);
+        } else if (value !== undefined && value !== null) {
+          courseFormData.append(key, String(value));
+        }
+      }
+
       const url = selectedCourse
         ? `https://student-portal-lms-seven.vercel.app/api/admin/courses/${selectedCourse._id}`
         : 'https://student-portal-lms-seven.vercel.app/api/admin/courses';
       const method = selectedCourse ? 'PUT' : 'POST';
 
-      const response = await fetchWithAuth(url, { method, body: formData });
-      return handleApiResponse(response);
+      const courseResponse = await fetchWithAuth(url, { method, body: courseFormData });
+      const newOrUpdatedCourse = await handleApiResponse(courseResponse) as Course;
+      const courseId = newOrUpdatedCourse._id;
+
+      if (!courseId) {
+        throw new Error('Failed to get course ID.');
+      }
+
+      // 2. Upload videos for the new course
+      if (data.videos && data.videos.length > 0) {
+        for (const video of data.videos) {
+          const videoFormData = new FormData();
+          videoFormData.append('title', video.title);
+          videoFormData.append('description', video.description || '');
+          if (video.video_file && (video.video_file as FileList).length > 0) {
+            videoFormData.append('video_file', (video.video_file as FileList)[0]);
+          }
+
+          // Note: This assumes a different endpoint for video uploads.
+          // Adjust if your API handles course creation and video uploads in a single request.
+          const videoUrl = `https://student-portal-lms-seven.vercel.app/api/admin/courses/${courseId}/videos`;
+          await fetchWithAuth(videoUrl, {
+            method: 'POST',
+            body: videoFormData,
+          });
+        }
+      }
+
+      return newOrUpdatedCourse;
     };
 
     toast.promise(promise(), {
@@ -344,7 +382,16 @@ const AdminCourses = () => {
             </div>
 
             <div className="space-y-4">
-              <Label>Videos</Label>
+              <Label>{selectedCourse ? "Existing Videos" : "Upload Videos"}</Label>
+              {selectedCourse && selectedCourse.videos && selectedCourse.videos.length > 0 && (
+                <div className="p-4 border rounded-lg space-y-2">
+                  {selectedCourse.videos.map((video, index) => (
+                    <div key={index} className="text-sm">{video.title}</div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">To edit videos, please do so from the course dashboard.</p>
+                </div>
+              )}
+
               {fields.map((field, index) => (
                 <div key={field.id} className="p-4 border rounded-lg space-y-2 relative mb-4">
                   <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => remove(index)}>
@@ -356,9 +403,9 @@ const AdminCourses = () => {
                     {form.formState.errors.videos?.[index]?.title && <p className="text-red-500 text-sm">{form.formState.errors.videos?.[index]?.title?.message}</p>}
                   </div>
                   <div>
-                    <Label htmlFor={`videos.${index}.youtube_url`}>YouTube URL</Label>
-                    <Input id={`videos.${index}.youtube_url`} {...form.register(`videos.${index}.youtube_url`)} placeholder="https://www.youtube.com/watch?v=..."/>
-                    {form.formState.errors.videos?.[index]?.youtube_url && <p className="text-red-500 text-sm">{form.formState.errors.videos?.[index]?.youtube_url?.message}</p>}
+                    <Label htmlFor={`videos.${index}.video_file`}>Video File</Label>
+                    <Input id={`videos.${index}.video_file`} type="file" accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska" {...form.register(`videos.${index}.video_file`)} />
+                    {form.formState.errors.videos?.[index]?.video_file && <p className="text-red-500 text-sm">{form.formState.errors.videos[index].video_file.message as string}</p>}
                   </div>
                   <div>
                     <Label htmlFor={`videos.${index}.description`}>Video Description</Label>
@@ -366,7 +413,7 @@ const AdminCourses = () => {
                   </div>
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={() => append({ youtube_url: '', title: '', description: '' })}>
+              <Button type="button" variant="outline" onClick={() => append({ title: '', description: '', video_file: null })}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Video
               </Button>
             </div>
