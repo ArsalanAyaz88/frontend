@@ -47,6 +47,7 @@ interface Course {
 
 // Zod Schemas
 const courseFormSchema = z.object({
+  _id: z.string().optional(),
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   price: z.coerce.number().min(0, 'Price cannot be negative'),
@@ -114,54 +115,48 @@ export default function AdminCourses() {
   }, [fetchCourses]);
 
   const onSubmit = async (data: CourseFormData) => {
+    const formData = new FormData();
+
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('price', String(data.price));
+
+    if (thumbnailFile) {
+      formData.append('thumbnail', thumbnailFile);
+    }
+
+    if (data.videos) {
+      data.videos.forEach((video, index) => {
+        formData.append(`videos[${index}][title]`, video.title);
+        if (video.description) {
+          formData.append(`videos[${index}][description]`, video.description);
+        }
+        if (video._id) {
+          formData.append(`videos[${index}][_id]`, video._id);
+        }
+        const videoFile = videoFiles[index];
+        if (videoFile) {
+          formData.append(`videos[${index}][video_file]`, videoFile);
+        }
+      });
+    }
+
     try {
-      let response;
-      if (selectedCourse) {
-        // Update existing course - sends JSON
-        response = await fetchWithAuth(`/api/admin/courses/${selectedCourse._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-      } else {
-        // Create new course - sends FormData
-        const formData = new FormData();
-        Object.entries(data).forEach(([key, value]) => {
-          if (key === 'videos' || key === 'thumbnail') return;
-          if (value !== undefined && value !== null) {
-            formData.append(key, String(value));
-          }
-        });
+      const isUpdating = !!selectedCourse;
+      const url = isUpdating ? `/api/admin/courses/${selectedCourse._id}` : '/api/admin/courses';
+      const method = isUpdating ? 'PUT' : 'POST';
 
-        if (data.thumbnail instanceof File) {
-          formData.append('thumbnail', data.thumbnail);
-        }
-
-        if (data.videos) {
-          data.videos.forEach((video, index) => {
-            Object.entries(video).forEach(([key, value]) => {
-              if (key !== 'video_file' && value) {
-                formData.append(`videos[${index}][${key}]`, String(value));
-              }
-            });
-            if (video.video_file instanceof File) {
-              formData.append(`videos[${index}][video_file]`, video.video_file);
-            }
-          });
-        }
-
-        response = await fetchWithAuth('/api/admin/courses', {
-          method: 'POST',
-          body: formData,
-        });
-      }
+      const response = await fetchWithAuth(url, {
+        method: method,
+        body: formData,
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail?.[0]?.msg || errorData.detail || 'Failed to save course');
+        throw new Error(errorData.detail || 'Failed to save course');
       }
 
-      toast.success(`Course ${selectedCourse ? 'updated' : 'created'} successfully`);
+      toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully`);
       setIsDialogOpen(false);
       fetchCourses();
     } catch (error: any) {
@@ -213,17 +208,24 @@ export default function AdminCourses() {
     setThumbnailPreview(course.thumbnail_url || null);
     setVideoPreviews(course.videos?.map(v => v.cloudinary_url || '') || []);
     setVideoFiles(course.videos?.map(() => null) || []);
-    form.reset(course);
+    form.reset({
+      ...course,
+      _id: course._id, // Ensure the ID is explicitly passed to the form
+    });
     setIsDialogOpen(true);
   };
 
-  const openNewDialog = () => {
+  const resetDialogState = () => {
     setSelectedCourse(null);
-    form.reset({ title: '', description: '', price: 0, videos: [] });
     setThumbnailFile(null);
     setThumbnailPreview(null);
     setVideoPreviews([]);
     setVideoFiles([]);
+    form.reset({ title: '', description: '', price: 0, videos: [] });
+  };
+
+  const openNewDialog = () => {
+    resetDialogState();
     setIsDialogOpen(true);
   };
 
@@ -276,7 +278,12 @@ export default function AdminCourses() {
         </div>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          resetDialogState();
+        }
+        setIsDialogOpen(isOpen);
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedCourse ? 'Edit Course' : 'Create New Course'}</DialogTitle>
