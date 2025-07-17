@@ -40,11 +40,15 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // Types
 interface Video {
-  _id: string;
+  _id?: string;
+  id?: string;
   cloudinary_url: string;
   title: string;
   description: string;
   quiz_id?: string;
+  video_file?: FileList | File | null;
+  quiz?: any;
+  video_preview?: string;
 }
 
 interface Course {
@@ -420,19 +424,45 @@ const AdminCourses: React.FC = () => {
     setIsUploading(true);
     const promise = async () => {
       try {
-      const coursePayload = { ...data };
-      // Videos are uploaded separately, so we remove them from the main payload
-      delete coursePayload.videos;
+        // First, validate the form data
+        await form.trigger();
+        
+        // Check if there are any form errors
+        const formState = form.formState;
+        if (Object.keys(formState.errors).length > 0) {
+          console.error('Form validation errors:', formState.errors);
+          throw new Error('Please fix the form errors before submitting.');
+        }
+
+        // Create course payload with all necessary fields
+        const coursePayload = { 
+          title: data.title,
+          description: data.description,
+          price: data.price,
+          difficulty_level: data.difficulty_level,
+          outcomes: data.outcomes,
+          prerequisites: data.prerequisites,
+          curriculum: data.curriculum
+        };
+        
+        // Store videos data for later processing
+        const videosData = data.videos?.filter((v): v is NonNullable<typeof v> => v !== null && v !== undefined) || [];
 
       const courseFormData = new FormData();
-      // Handle thumbnail separately
-      if (data.thumbnail && data.thumbnail[0]) {
-        courseFormData.append('thumbnail', data.thumbnail[0]);
+      
+      // Handle thumbnail separately if it exists
+      const thumbnailFile = Array.isArray(data.thumbnail) 
+        ? data.thumbnail[0] 
+        : data.thumbnail;
+      
+      if (thumbnailFile instanceof File) {
+        courseFormData.append('thumbnail', thumbnailFile);
+      } else if (data.thumbnail) {
+        // Handle case where thumbnail is a string URL (existing thumbnail)
+        courseFormData.append('thumbnail_url', String(data.thumbnail));
       }
-      // Remove thumbnail from payload to avoid sending it as a string
-      delete coursePayload.thumbnail;
 
-      // Append other course data
+      // Append other course data to FormData
       Object.entries(coursePayload).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           courseFormData.append(key, String(value));
@@ -453,32 +483,62 @@ const AdminCourses: React.FC = () => {
       const courseId = newOrUpdatedCourse._id;
 
       // Now, upload videos if any are present
-      if (data.videos && data.videos.length > 0) {
-        for (let i = 0; i < data.videos.length; i++) {
-          const video = data.videos[i];
+      if (videosData.length > 0) {
+        for (let i = 0; i < videosData.length; i++) {
+          const video = videosData[i] as Video & { video_file?: FileList | File | null; quiz?: any };
+          if (!video) continue;
+          
           const videoFormData = new FormData();
-          videoFormData.append('title', video.title);
-          videoFormData.append('description', video.description || '');
-
-          if (video.video_file && video.video_file[0]) {
-            videoFormData.append('video_file', video.video_file[0]);
+          
+          // Add required video fields
+          if (video.title) videoFormData.append('title', video.title);
+          if (video.description) videoFormData.append('description', video.description);
+          
+          // Handle video file upload if present
+          const videoFile = Array.isArray(video.video_file) 
+            ? video.video_file[0] 
+            : video.video_file;
+            
+          if (videoFile instanceof File) {
+            videoFormData.append('video_file', videoFile);
+          } else if (!selectedCourse) {
+            // Only require video file for new courses
+            throw new Error(`Video file is required for video ${i + 1}`);
           }
-
+          
+          // Handle quiz data if present
           if (video.quiz) {
-            videoFormData.append('quiz', JSON.stringify(video.quiz));
+            try {
+              videoFormData.append('quiz', JSON.stringify(video.quiz));
+            } catch (error) {
+              console.error('Error stringifying quiz data:', error);
+              throw new Error(`Invalid quiz data for video: ${video.title || 'Untitled'}`);
+            }
           }
 
-          const videoUrl = `/api/v1/courses/${courseId}/videos`;
-          await axiosWithAuth(videoUrl, {
-            method: 'POST',
-            data: videoFormData,
-            onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-              if (progressEvent.total) {
-                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                setUploadProgress(prev => ({ ...prev, [`video_${i}`]: percentCompleted }));
+          try {
+            const videoUrl = `/api/v1/courses/${courseId}/videos`;
+            // Check for both _id and id for backward compatibility
+            const videoId = video._id || video.id;
+            const method = videoId ? 'PUT' : 'POST';
+            const url = videoId ? `${videoUrl}/${videoId}` : videoUrl;
+            
+            console.log(`Uploading video ${i + 1} with method ${method} to ${url}`);
+            
+            await axiosWithAuth(url, {
+              method,
+              data: videoFormData,
+              onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+                if (progressEvent.total) {
+                  const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                  setUploadProgress(prev => ({ ...prev, [`video_${i}`]: percentCompleted }));
+                }
               }
-            }
-          });
+            });
+          } catch (error) {
+            console.error(`Error uploading video ${i + 1}:`, error);
+            throw new Error(`Failed to upload video: ${video.title || 'Untitled'}. ${(error as Error).message}`);
+          }
         }
       }
         return newOrUpdatedCourse;
@@ -659,13 +719,13 @@ const AdminCourses: React.FC = () => {
                       >
                         <FileQuestion className="h-4 w-4" />
                       </Button>
-                      {v.quiz_id && (
+                      {v.quiz_id && v._id && (
                         <Button
                           type="button"
                           variant="link"
                           size="icon"
                           className="h-6 w-6 text-red-500"
-                          onClick={() => handleRemoveQuiz(v._id)}
+                          onClick={() => v._id && handleRemoveQuiz(v._id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -677,7 +737,7 @@ const AdminCourses: React.FC = () => {
                         className="h-6 w-6"
                         onClick={() => {
                           if (selectedCourse) {
-                            setVideoToDelete({ courseId: selectedCourse._id, videoId: v._id });
+                            setVideoToDelete({ courseId: selectedCourse._id, videoId: v._id || '' });
                             setIsDeleteVideoDialogOpen(true);
                           }
                         }}
