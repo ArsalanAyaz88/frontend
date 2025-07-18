@@ -130,25 +130,33 @@ export default function AdminCourses() {
       let thumbnailUrl = selectedCourse?.thumbnail_url || '';
       if (thumbnailFile) {
         const thumbFormData = new FormData();
+        // The backend's upload_image function expects the field to be named 'file'
         thumbFormData.append('file', thumbnailFile);
-        const res = await api.post('/api/upload/image', thumbFormData);
-        thumbnailUrl = res.data.url;
+        try {
+          const res = await api.post('/api/upload/image', thumbFormData);
+          thumbnailUrl = res.data.url;
+        } catch (error) {
+          console.error('Thumbnail upload failed:', error);
+          toast.error('Failed to upload thumbnail. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
       }
 
-      // Step 2: Create or Update the Course to get an ID
+      // Step 2: Create or Update the Course using FormData
       const isUpdating = !!selectedCourse;
-      const coursePayload = {
-        title: data.title,
-        description: data.description,
-        price: data.price,
-        thumbnail_url: thumbnailUrl,
-      };
+      const courseFormData = new FormData();
+      courseFormData.append('title', data.title);
+      courseFormData.append('description', data.description);
+      courseFormData.append('price', data.price.toString());
+      if (thumbnailUrl) {
+        courseFormData.append('thumbnail_url', thumbnailUrl);
+      }
 
-      // Use a different endpoint for update that doesn't rely on FormData for simple fields
       const courseResponse = isUpdating
-        ? await api.put(`/api/admin/courses/${selectedCourse?._id}`, coursePayload)
-        : await api.post('/api/admin/courses', coursePayload);
-      
+        ? await api.put(`/api/admin/courses/${selectedCourse?._id}`, courseFormData) // Assuming update also accepts FormData
+        : await api.post('/api/admin/courses', courseFormData);
+
       const courseId = courseResponse.data.id || selectedCourse?._id;
 
       if (!courseId) {
