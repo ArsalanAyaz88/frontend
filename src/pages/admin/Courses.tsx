@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,10 +23,13 @@ import { api } from '@/lib/api';
 interface Video {
   _id?: string;
   id?: string;
-  cloudinary_url: string;
+  url: string;
+  public_id?: string;
   title: string;
   description?: string;
+  duration?: number;
   video_file?: File | null;
+  previewUrl?: string;
 }
 
 interface Course {
@@ -47,8 +51,10 @@ const videoSchema = z.object({
   title: z.string().min(3, 'Video title is required'),
   description: z.string().optional(),
   video_file: z.any().optional(),
-  cloudinary_url: z.string().optional(),
-  previewUrl: z.string().optional(), // For local preview
+  url: z.string().optional(),
+  public_id: z.string().optional(),
+  duration: z.number().optional(),
+  previewUrl: z.string().optional(),
 });
 
 const courseFormSchema = z.object({
@@ -108,58 +114,101 @@ export default function AdminCourses() {
 
   const onSubmit = async (data: CourseFormData) => {
     setIsSubmitting(true);
-    try {
-      const isUpdating = !!selectedCourse;
-      const url = isUpdating ? `/api/admin/courses/${selectedCourse?._id}` : '/api/admin/courses';
-      const method = isUpdating ? 'PUT' : 'POST';
+    setUploadProgress({});
+    // IMPORTANT: Replace with your Cloudinary cloud name
+    const CLOUDINARY_CLOUD_NAME = 'imagesahsan';
 
-      const coursePayload = new FormData();
-      coursePayload.append('title', data.title);
-      coursePayload.append('description', data.description);
-      coursePayload.append('price', data.price.toString());
+    if (CLOUDINARY_CLOUD_NAME === 'your_cloud_name_here') {
+      toast.error("Please update the CLOUDINARY_CLOUD_NAME in Courses.tsx before uploading.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      // Step 1: Handle thumbnail upload if a new one is selected
+      let thumbnailUrl = selectedCourse?.thumbnail_url || '';
       if (thumbnailFile) {
-        coursePayload.append('thumbnail', thumbnailFile);
+        const thumbFormData = new FormData();
+        thumbFormData.append('file', thumbnailFile);
+        const res = await api.post('/api/upload/image', thumbFormData);
+        thumbnailUrl = res.data.url;
       }
 
-      const courseResponse = await api({
-        method,
-        url,
-        data: coursePayload,
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const courseResult = courseResponse.data;
-      if (courseResponse.status > 299) throw new Error(courseResult.detail || 'Failed to save course details');
+      // Step 2: Create or Update the Course to get an ID
+      const isUpdating = !!selectedCourse;
+      const coursePayload = {
+        title: data.title,
+        description: data.description,
+        price: data.price,
+        thumbnail_url: thumbnailUrl,
+      };
 
-      const courseId = courseResult.id;
+      // Use a different endpoint for update that doesn't rely on FormData for simple fields
+      const courseResponse = isUpdating
+        ? await api.put(`/api/admin/courses/${selectedCourse?._id}`, coursePayload)
+        : await api.post('/api/admin/courses', coursePayload);
+      
+      const courseId = courseResponse.data.id || selectedCourse?._id;
 
-      if (data.videos && data.videos.length > 0) {
-        const uploadPromises = data.videos.map((video, index) => {
-          if (video.video_file) {
-            const videoPayload = new FormData();
-            videoPayload.append('title', video.title);
-            if(video.description) videoPayload.append('description', video.description);
-            videoPayload.append('file', video.video_file);
+      if (!courseId) {
+        throw new Error("Failed to get course ID.");
+      }
 
-            return api.post(`/api/admin/courses/${courseId}/videos`, videoPayload, {
-              headers: { 'Content-Type': 'multipart/form-data' },
+      // Step 3: Handle video uploads and associating them
+      for (let i = 0; i < (data.videos?.length || 0); i++) {
+        const video = data.videos![i];
+        
+        // Only upload if there's a file and it hasn't been uploaded yet (no url)
+        if (video.video_file instanceof File && !video.url) {
+          try {
+            // Get signature from our backend
+            const signatureRes = await api.post('/api/admin/generate-video-upload-signature');
+            const { signature, timestamp, api_key } = signatureRes.data;
+
+            // Create form data for Cloudinary
+            const videoFormData = new FormData();
+            videoFormData.append('file', video.video_file);
+            videoFormData.append('api_key', api_key);
+            videoFormData.append('timestamp', timestamp);
+            videoFormData.append('signature', signature);
+            videoFormData.append('folder', 'videos');
+            
+            // Upload directly to Cloudinary
+            const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
+            const cloudinaryResponse = await axios.post(cloudinaryUrl, videoFormData, {
               onUploadProgress: (progressEvent) => {
                 if (progressEvent.total) {
                   const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                  setUploadProgress(prev => ({ ...prev, [index]: percentCompleted }));
+                  setUploadProgress(prev => ({ ...prev, [i]: percentCompleted }));
                 }
               },
             });
+
+            const { secure_url, public_id, duration } = cloudinaryResponse.data;
+
+            // Now, tell our backend about the new video
+            await api.post(`/api/admin/courses/${courseId}/videos`, {
+              title: video.title,
+              description: video.description,
+              video_url: secure_url,
+              public_id,
+              duration,
+              is_preview: false, // TODO: Add this to the form if needed
+            });
+          } catch (uploadError) {
+             console.error(`Failed to upload video ${video.title}:`, uploadError);
+             toast.error(`Failed to upload video: ${video.title}`);
+             // Continue to next video, so one failure doesn't stop everything
           }
-          return Promise.resolve();
-        });
-        await Promise.all(uploadPromises);
+        }
       }
 
-      toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully!`);
+      toast.success(`Course ${isUpdating ? 'updated' : 'saved'} successfully!`);
       resetDialogState();
       fetchCourses();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+
+    } catch (error: any) {
+      const message = error.response?.data?.detail || error.message || 'An unexpected error occurred.';
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -177,8 +226,12 @@ export default function AdminCourses() {
   const handleVideoChange = (files: File[], index: number) => {
     if (files.length > 0) {
       const file = files[0];
-      const field = fields[index];
-      update(index, { ...field, video_file: file, previewUrl: URL.createObjectURL(file) });
+      const currentVideo = form.getValues(`videos.${index}`);
+      update(index, {
+        ...currentVideo,
+        video_file: file,
+        previewUrl: URL.createObjectURL(file),
+      });
     }
   };
 
