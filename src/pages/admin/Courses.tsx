@@ -23,39 +23,38 @@ import { api } from '@/lib/api';
 interface Video {
   _id?: string;
   id?: string;
-  url: string;
-  public_id?: string;
   title: string;
   description?: string;
-  duration?: number;
+  video_url?: string;
   video_file?: File | null;
   previewUrl?: string;
-  cloudinary_url?: string;
 }
 
 interface Course {
-  id: string;
   _id: string;
+  id: string;
   title: string;
+  description: string;
   price: number;
   total_enrollments: number;
-  created_at: string;
-  description?: string;
+  is_published: boolean;
   thumbnail_url?: string;
   videos?: Video[];
-  is_published: boolean;
+  status?: string;
+  difficulty_level?: string;
+  outcomes?: string;
+  prerequisites?: string;
+  curriculum?: string;
 }
+
 
 // Zod Schemas
 const videoSchema = z.object({
-  id: z.string().optional(),
   _id: z.string().optional(),
-  title: z.string().min(3, 'Video title is required'),
+  title: z.string().min(1, 'Video title is required'),
   description: z.string().optional(),
+  video_url: z.string().optional(),
   video_file: z.any().optional(),
-  url: z.string().optional(),
-  public_id: z.string().optional(),
-  duration: z.number().optional(),
   previewUrl: z.string().optional(),
 });
 
@@ -65,6 +64,11 @@ const courseFormSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   price: z.coerce.number().min(0, 'Price cannot be negative'),
   thumbnail: z.any().optional(),
+  difficulty_level: z.string().optional(),
+  outcomes: z.string().optional(),
+  prerequisites: z.string().optional(),
+  curriculum: z.string().optional(),
+  status: z.string().optional(),
   videos: z.array(videoSchema).optional(),
 });
 
@@ -88,7 +92,13 @@ export default function AdminCourses() {
       title: '',
       description: '',
       price: 0,
+      difficulty_level: 'Beginner',
+      outcomes: '',
+      prerequisites: '',
+      curriculum: '',
+      status: 'draft',
       videos: [],
+      thumbnail: null,
     },
   });
 
@@ -142,6 +152,11 @@ export default function AdminCourses() {
       courseFormData.append('title', data.title);
       courseFormData.append('description', data.description);
       courseFormData.append('price', data.price.toString());
+            if (data.difficulty_level) courseFormData.append('difficulty_level', data.difficulty_level);
+      if (data.outcomes) courseFormData.append('outcomes', data.outcomes);
+      if (data.prerequisites) courseFormData.append('prerequisites', data.prerequisites);
+      if (data.curriculum) courseFormData.append('curriculum', data.curriculum);
+      if (data.status) courseFormData.append('status', data.status);
       if (thumbnailUrl) {
         courseFormData.append('thumbnail_url', thumbnailUrl);
       }
@@ -259,19 +274,29 @@ export default function AdminCourses() {
     setSelectedCourse(course);
     form.reset({
       ...course,
-      videos: course.videos?.map(v => ({ ...v, video_file: null, previewUrl: v.cloudinary_url })) || [],
+      videos: course.videos?.map(v => ({ ...v, video_file: null, previewUrl: v.video_url, description: v.description || '' })) || [],
     });
     setThumbnailPreview(course.thumbnail_url || null);
     setIsDialogOpen(true);
   };
 
   const resetDialogState = () => {
-    form.reset({ title: '', description: '', price: 0, videos: [] });
+    form.reset({
+      title: '',
+      description: '',
+      price: 0,
+      difficulty_level: 'Beginner',
+      outcomes: '',
+      prerequisites: '',
+      curriculum: '',
+      status: 'draft',
+      videos: [],
+      thumbnail: null,
+    });
     setSelectedCourse(null);
     setIsDialogOpen(false);
     setThumbnailFile(null);
     setThumbnailPreview(null);
-    setUploadProgress({});
   };
 
   const openNewDialog = () => {
@@ -348,6 +373,58 @@ export default function AdminCourses() {
                     </FormItem>
                     {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail preview" className="h-40 w-full rounded-md border object-cover" />}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel htmlFor="difficulty_level" className="text-right">Difficulty</FormLabel>
+                  <FormField control={form.control} name="difficulty_level" render={({ field }) => (
+                    <FormControl>
+                      <select id="difficulty_level" {...field} className="p-2 border rounded col-span-3 bg-transparent">
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                      </select>
+                    </FormControl>
+                  )} />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel htmlFor="outcomes" className="text-right">Outcomes</FormLabel>
+                  <FormField control={form.control} name="outcomes" render={({ field }) => (
+                    <FormControl>
+                      <Textarea id="outcomes" {...field} className="col-span-3" />
+                    </FormControl>
+                  )} />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel htmlFor="prerequisites" className="text-right">Prerequisites</FormLabel>
+                  <FormField control={form.control} name="prerequisites" render={({ field }) => (
+                    <FormControl>
+                      <Textarea id="prerequisites" {...field} className="col-span-3" />
+                    </FormControl>
+                  )} />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel htmlFor="curriculum" className="text-right">Curriculum</FormLabel>
+                  <FormField control={form.control} name="curriculum" render={({ field }) => (
+                    <FormControl>
+                      <Textarea id="curriculum" {...field} className="col-span-3" />
+                    </FormControl>
+                  )} />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel htmlFor="status" className="text-right">Status</FormLabel>
+                  <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormControl>
+                      <select id="status" {...field} className="p-2 border rounded col-span-3 bg-transparent">
+                        <option value="draft">Draft</option>
+                        <option value="active">Active</option>
+                      </select>
+                    </FormControl>
+                  )} />
                 </div>
 
                 <div>
