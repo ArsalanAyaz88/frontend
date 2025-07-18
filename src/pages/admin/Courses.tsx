@@ -14,10 +14,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-
+import { Progress } from '@/components/ui/progress';
 import { FileUploader } from '@/components/upload/FileUploader';
-import { useFileUpload } from '@/hooks/useFileUpload';
-import { fetchWithAuth } from '@/lib/api';
+import { api } from '@/lib/api';
 
 // Types
 interface Video {
@@ -25,7 +24,7 @@ interface Video {
   id?: string;
   cloudinary_url: string;
   title: string;
-  description: string;
+  description?: string;
   video_file?: File | null;
 }
 
@@ -37,33 +36,28 @@ interface Course {
   created_at: string;
   description?: string;
   thumbnail_url?: string;
-  difficulty_level?: string;
-  outcomes?: string;
-  prerequisites?: string;
-  curriculum?: string;
   videos?: Video[];
   is_published: boolean;
 }
 
 // Zod Schemas
+const videoSchema = z.object({
+  id: z.string().optional(),
+  _id: z.string().optional(),
+  title: z.string().min(3, 'Video title is required'),
+  description: z.string().optional(),
+  video_file: z.any().optional(),
+  cloudinary_url: z.string().optional(),
+  previewUrl: z.string().optional(), // For local preview
+});
+
 const courseFormSchema = z.object({
   _id: z.string().optional(),
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   price: z.coerce.number().min(0, 'Price cannot be negative'),
   thumbnail: z.any().optional(),
-  difficulty_level: z.string().optional(),
-  outcomes: z.string().optional(),
-  prerequisites: z.string().optional(),
-  curriculum: z.string().optional(),
-  videos: z.array(z.object({
-    id: z.string().optional(),
-    _id: z.string().optional(),
-    title: z.string().min(3, 'Video title is required'),
-    description: z.string().optional(),
-    video_file: z.any().optional(),
-    cloudinary_url: z.string().optional(),
-  })).optional(),
+  videos: z.array(videoSchema).optional(),
 });
 
 type CourseFormData = z.infer<typeof courseFormSchema>;
@@ -71,16 +65,14 @@ type CourseFormData = z.infer<typeof courseFormSchema>;
 export default function AdminCourses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
-  const [videoFiles, setVideoFiles] = useState<(File | null)[]>([]);
-
-  const { isUploading } = useFileUpload();
+  const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({});
 
   const form = useForm<CourseFormData>({
     resolver: zodResolver(courseFormSchema),
@@ -92,7 +84,7 @@ export default function AdminCourses() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: 'videos',
   });
@@ -100,9 +92,8 @@ export default function AdminCourses() {
   const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetchWithAuth('/api/admin/courses');
-      const data = await response.json();
-      setCourses(data);
+      const response = await api.get('/api/admin/courses');
+      setCourses(response.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch courses';
       toast.error(message);
@@ -116,9 +107,10 @@ export default function AdminCourses() {
   }, [fetchCourses]);
 
   const onSubmit = async (data: CourseFormData) => {
+    setIsSubmitting(true);
     try {
       const isUpdating = !!selectedCourse;
-      const url = isUpdating ? `/api/admin/courses/${selectedCourse._id}` : '/api/admin/courses';
+      const url = isUpdating ? `/api/admin/courses/${selectedCourse?._id}` : '/api/admin/courses';
       const method = isUpdating ? 'PUT' : 'POST';
 
       const coursePayload = new FormData();
@@ -129,30 +121,48 @@ export default function AdminCourses() {
         coursePayload.append('thumbnail', thumbnailFile);
       }
 
-      const courseResponse = await fetchWithAuth(url, { method, body: coursePayload });
-      const courseResult = await courseResponse.json();
-      if (!courseResponse.ok) throw new Error(courseResult.detail || 'Failed to save course details');
+      const courseResponse = await api({
+        method,
+        url,
+        data: coursePayload,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const courseResult = courseResponse.data;
+      if (courseResponse.status > 299) throw new Error(courseResult.detail || 'Failed to save course details');
 
       const courseId = courseResult.id;
 
       if (data.videos && data.videos.length > 0) {
-        for (const video of data.videos) {
+        const uploadPromises = data.videos.map((video, index) => {
           if (video.video_file) {
             const videoPayload = new FormData();
             videoPayload.append('title', video.title);
-            videoPayload.append('description', video.description || '');
+            if(video.description) videoPayload.append('description', video.description);
             videoPayload.append('file', video.video_file);
-            await fetchWithAuth(`/api/admin/courses/${courseId}/videos`, { method: 'POST', body: videoPayload });
+
+            return api.post(`/api/admin/courses/${courseId}/videos`, videoPayload, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+              onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                  const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                  setUploadProgress(prev => ({ ...prev, [index]: percentCompleted }));
+                }
+              },
+            });
           }
-        }
+          return Promise.resolve();
+        });
+        await Promise.all(uploadPromises);
       }
 
       toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully!`);
-      fetchCourses();
       resetDialogState();
+      fetchCourses();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'An unknown error occurred during course submission.';
+      const message = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast.error(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -160,61 +170,55 @@ export default function AdminCourses() {
     if (files.length > 0) {
       const file = files[0];
       setThumbnailFile(file);
-      form.setValue('thumbnail', file);
-      const reader = new FileReader();
-      reader.onloadend = () => setThumbnailPreview(reader.result as string);
-      reader.readAsDataURL(file);
+      setThumbnailPreview(URL.createObjectURL(file));
     }
   };
 
   const handleVideoChange = (files: File[], index: number) => {
     if (files.length > 0) {
       const file = files[0];
-      form.setValue(`videos.${index}.video_file`, file);
-
-      const newFiles = [...videoFiles];
-      newFiles[index] = file;
-      setVideoFiles(newFiles);
-
-      const newPreviews = [...videoPreviews];
-      newPreviews[index] = URL.createObjectURL(file);
-      setVideoPreviews(newPreviews);
+      const field = fields[index];
+      update(index, { ...field, video_file: file, previewUrl: URL.createObjectURL(file) });
     }
+  };
+
+  const openDeleteDialog = (courseId: string) => {
+    setCourseToDelete(courseId);
+    setIsDeleteDialogOpen(true);
   };
 
   const handleDeleteCourse = async () => {
     if (!courseToDelete) return;
     try {
-      await fetchWithAuth(`/api/admin/courses/${courseToDelete}`, { method: 'DELETE' });
+      await api.delete(`/api/admin/courses/${courseToDelete}`);
       toast.success('Course deleted successfully');
-      setIsDeleteDialogOpen(false);
       fetchCourses();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete course';
       toast.error(message);
+    } finally {
+        setIsDeleteDialogOpen(false);
+        setCourseToDelete(null);
     }
   };
 
   const openEditDialog = (course: Course) => {
     setSelectedCourse(course);
-    setThumbnailFile(null);
-    setThumbnailPreview(course.thumbnail_url || null);
-    setVideoPreviews(course.videos?.map(v => v.cloudinary_url || '') || []);
-    setVideoFiles(course.videos?.map(() => null) || []);
     form.reset({
       ...course,
-      _id: course._id, // Ensure the ID is explicitly passed to the form
+      videos: course.videos?.map(v => ({ ...v, video_file: null, previewUrl: v.cloudinary_url })) || [],
     });
+    setThumbnailPreview(course.thumbnail_url || null);
     setIsDialogOpen(true);
   };
 
   const resetDialogState = () => {
+    form.reset({ title: '', description: '', price: 0, videos: [] });
     setSelectedCourse(null);
+    setIsDialogOpen(false);
     setThumbnailFile(null);
     setThumbnailPreview(null);
-    setVideoPreviews([]);
-    setVideoFiles([]);
-    form.reset({ title: '', description: '', price: 0, videos: [] });
+    setUploadProgress({});
   };
 
   const openNewDialog = () => {
@@ -224,72 +228,63 @@ export default function AdminCourses() {
 
   return (
     <DashboardLayout userType="admin">
-      <div className="container mx-auto p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Courses</h1>
-          <Button onClick={openNewDialog}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Create Course
-          </Button>
-        </div>
-
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Students</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-4">Loading...</TableCell></TableRow>
-              ) : courses.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-4">No courses found.</TableCell></TableRow>
-              ) : (
-                courses.map((course) => (
-                  <TableRow key={course._id}>
-                    <TableCell className="font-medium">{course.title}</TableCell>
-                    <TableCell>${course.price}</TableCell>
-                    <TableCell>{course.total_enrollments}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${course.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {course.is_published ? 'Published' : 'Draft'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(course)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="destructive" size="sm" onClick={() => { setCourseToDelete(course._id); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Courses</h1>
+        <Button onClick={openNewDialog}><PlusCircle className="mr-2 h-4 w-4" /> Add New Course</Button>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          resetDialogState();
-        }
-        setIsDialogOpen(isOpen);
-      }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Enrollments</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-4">Loading...</TableCell></TableRow>
+            ) : courses.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-4">No courses found.</TableCell></TableRow>
+            ) : (
+              courses.map((course) => (
+                <TableRow key={course._id}>
+                  <TableCell className="font-medium">{course.title}</TableCell>
+                  <TableCell>${course.price}</TableCell>
+                  <TableCell>{course.total_enrollments}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs ${course.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {course.is_published ? 'Published' : 'Draft'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => openEditDialog(course)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(course._id)}><Trash2 className="h-4 w-4" /></Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => !isSubmitting && (isOpen ? setIsDialogOpen(true) : resetDialogState())}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedCourse ? 'Edit Course' : 'Create New Course'}</DialogTitle>
-            <DialogDescription>{selectedCourse ? 'Update the course details.' : 'Fill in the details to create a new course.'}</DialogDescription>
+            <DialogDescription>{selectedCourse ? 'Update the details of your course.' : 'Fill in the details to create a new course.'}</DialogDescription>
           </DialogHeader>
           <FormProvider {...form}>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[80vh] overflow-y-auto pr-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Course Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} placeholder="e.g., Introduction to Programming" /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} placeholder="Describe your course" rows={5} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" {...field} placeholder="e.g., 99.99" /></FormControl><FormMessage /></FormItem>)} />
                   </div>
                   <div className="space-y-4">
                     <FormItem>
@@ -312,20 +307,21 @@ export default function AdminCourses() {
                           <FormField control={form.control} name={`videos.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} placeholder="Video title" /></FormControl><FormMessage /></FormItem>)} />
                           <FormItem>
                             <FormLabel>Video File</FormLabel>
-                            <FormControl><FileUploader onUpload={(files) => handleVideoChange(files, index)} value={videoFiles[index] ? [videoFiles[index] as File] : []} maxSize={2 * 1024 * 1024 * 1024} multiple={false} /></FormControl>
+                            <FormControl><FileUploader onUpload={(files) => handleVideoChange(files, index)} value={field.video_file ? [field.video_file] : []} maxSize={500 * 1024 * 1024} multiple={false} /></FormControl>
                           </FormItem>
                         </div>
-                        {videoPreviews[index] && <video src={videoPreviews[index]} controls className="w-full rounded-md" />}
+                        {field.previewUrl && <video src={field.previewUrl} controls className="w-full rounded-md" />}
+                        {uploadProgress[index] > 0 && <Progress value={uploadProgress[index]} className="w-full h-2.5" />}
                         <FormField control={form.control} name={`videos.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} placeholder="Video description" rows={2} /></FormControl></FormItem>)} />
                       </div>
                     ))}
                   </div>
-                  <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ title: '', description: '' })}><PlusCircle className="mr-2 h-4 w-4" /> Add Video</Button>
+                  <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ title: '', description: '', video_file: null, previewUrl: '' })}><PlusCircle className="mr-2 h-4 w-4" /> Add Video</Button>
                 </div>
 
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isUploading}>Cancel</Button>
-                  <Button type="submit" disabled={isUploading}>{isUploading ? 'Saving...' : 'Save Course'}</Button>
+                  <Button type="button" variant="outline" onClick={resetDialogState} disabled={isSubmitting}>Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (selectedCourse ? 'Save Changes' : 'Create Course')}</Button>
                 </DialogFooter>
               </form>
             </Form>
