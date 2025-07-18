@@ -20,7 +20,9 @@ interface UserSession {
   access_token: string;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+// IMPORTANT: Replace this with the actual URL of your deployed Python backend.
+// It should look something like: https://your-backend-app.onrender.com/api/admin
+const API_BASE_URL = '/api'; // TODO: Replace with your actual backend URL
 
 // Create axios instance with default config
 const api: AxiosInstance = axios.create({

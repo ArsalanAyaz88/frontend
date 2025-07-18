@@ -30,9 +30,11 @@ interface Video {
   duration?: number;
   video_file?: File | null;
   previewUrl?: string;
+  cloudinary_url?: string;
 }
 
 interface Course {
+  id: string;
   _id: string;
   title: string;
   price: number;
@@ -115,11 +117,10 @@ export default function AdminCourses() {
   const onSubmit = async (data: CourseFormData) => {
     setIsSubmitting(true);
     setUploadProgress({});
-    // IMPORTANT: Replace with your Cloudinary cloud name
-    const CLOUDINARY_CLOUD_NAME = 'imagesahsan';
 
-    if (CLOUDINARY_CLOUD_NAME === 'your_cloud_name_here') {
-      toast.error("Please update the CLOUDINARY_CLOUD_NAME in Courses.tsx before uploading.");
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    if (!cloudName) {
+      toast.error('VITE_CLOUDINARY_CLOUD_NAME is not configured in your .env file.');
       setIsSubmitting(false);
       return;
     }
@@ -174,7 +175,7 @@ export default function AdminCourses() {
             videoFormData.append('folder', 'videos');
             
             // Upload directly to Cloudinary
-            const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
+            const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
             const cloudinaryResponse = await axios.post(cloudinaryUrl, videoFormData, {
               onUploadProgress: (progressEvent) => {
                 if (progressEvent.total) {
