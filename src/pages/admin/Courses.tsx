@@ -115,22 +115,15 @@ export default function AdminCourses() {
   }, [fetchCourses]);
 
   const onSubmit = async (data: CourseFormData) => {
-    setIsSubmitting(true);
-    setUploadProgress({});
-
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-    if (!cloudName) {
-      toast.error('VITE_CLOUDINARY_CLOUD_NAME is not configured in your .env file.');
-      setIsSubmitting(false);
-      return;
-    }
+    if (isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
+
       // Step 1: Handle thumbnail upload if a new one is selected
       let thumbnailUrl = selectedCourse?.thumbnail_url || '';
       if (thumbnailFile) {
         const thumbFormData = new FormData();
-        // The backend's upload_image function expects the field to be named 'file'
         thumbFormData.append('file', thumbnailFile);
         try {
           const res = await api.post('/api/upload/image', thumbFormData);
@@ -154,73 +147,71 @@ export default function AdminCourses() {
       }
 
       const courseResponse = isUpdating
-        ? await api.put(`/api/admin/courses/${selectedCourse?._id}`, courseFormData) // Assuming update also accepts FormData
+        ? await api.put(`/api/admin/courses/${selectedCourse?._id}`, courseFormData)
         : await api.post('/api/admin/courses', courseFormData);
 
       const courseId = courseResponse.data.id || selectedCourse?._id;
 
       if (!courseId) {
-        throw new Error("Failed to get course ID.");
+        toast.error('Failed to create or update course. Cannot upload videos.');
+        setIsSubmitting(false);
+        return;
       }
 
-      // Step 3: Handle video uploads and associating them
-      for (let i = 0; i < (data.videos?.length || 0); i++) {
-        const video = data.videos![i];
-        
-        // Only upload if there's a file and it hasn't been uploaded yet (no url)
-        if (video.video_file instanceof File && !video.url) {
+      // Step 3: Upload videos one by one
+      const videoFiles = data.videos?.map(v => v.video_file).filter(f => f instanceof File) || [];
+      if (videoFiles.length > 0) {
+        toast.info(`Uploading ${videoFiles.length} videos...`);
+        for (let i = 0; i < videoFiles.length; i++) {
+          const file = videoFiles[i];
           try {
-            // Get signature from our backend
-            const signatureRes = await api.post('/api/admin/generate-video-upload-signature');
-            const { signature, timestamp, api_key } = signatureRes.data;
+            const signatureResponse = await api.post('/api/admin/generate-video-upload-signature');
+            const { signature, timestamp, api_key } = signatureResponse.data;
 
-            // Create form data for Cloudinary
             const videoFormData = new FormData();
-            videoFormData.append('file', video.video_file);
+            videoFormData.append('file', file);
             videoFormData.append('api_key', api_key);
             videoFormData.append('timestamp', timestamp);
             videoFormData.append('signature', signature);
             videoFormData.append('folder', 'videos');
-            
-            // Upload directly to Cloudinary
-            const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
+
+            const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/video/upload`;
             const cloudinaryResponse = await axios.post(cloudinaryUrl, videoFormData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
               onUploadProgress: (progressEvent) => {
-                if (progressEvent.total) {
-                  const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                  setUploadProgress(prev => ({ ...prev, [i]: percentCompleted }));
-                }
+                const total = progressEvent.total ?? 0;
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / total);
+                setUploadProgress(prev => ({ ...prev, [i]: percentCompleted }));
               },
             });
 
-            const { secure_url, public_id, duration } = cloudinaryResponse.data;
+            const { public_id, secure_url, duration } = cloudinaryResponse.data;
 
-            // Now, tell our backend about the new video
             await api.post(`/api/admin/courses/${courseId}/videos`, {
-              title: video.title,
-              description: video.description,
+              title: file.name,
               video_url: secure_url,
-              public_id,
-              duration,
-              is_preview: false, // TODO: Add this to the form if needed
+              public_id: public_id,
+              duration: duration,
             });
+
+            toast.success(`Uploaded ${file.name} successfully!`);
           } catch (uploadError) {
-             console.error(`Failed to upload video ${video.title}:`, uploadError);
-             toast.error(`Failed to upload video: ${video.title}`);
-             // Continue to next video, so one failure doesn't stop everything
+            console.error(`Failed to upload ${file.name}:`, uploadError);
+            toast.error(`Failed to upload ${file.name}.`);
           }
         }
       }
 
-      toast.success(`Course ${isUpdating ? 'updated' : 'saved'} successfully!`);
-      resetDialogState();
+      toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully!`);
       fetchCourses();
-
+      setIsDialogOpen(false);
     } catch (error: any) {
-      const message = error.response?.data?.detail || error.message || 'An unexpected error occurred.';
-      toast.error(message);
+      const errorMessage = error.response?.data?.detail || 'An unexpected error occurred.';
+      toast.error(errorMessage);
+      console.error('Error saving course:', error);
     } finally {
       setIsSubmitting(false);
+      setUploadProgress({});
     }
   };
 
