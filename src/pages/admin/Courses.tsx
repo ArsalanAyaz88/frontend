@@ -104,7 +104,8 @@ export default function AdminCourses() {
       const data = await response.json();
       setCourses(data);
     } catch (error) {
-      toast.error('Failed to fetch courses');
+      const message = error instanceof Error ? error.message : 'Failed to fetch courses';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -115,52 +116,43 @@ export default function AdminCourses() {
   }, [fetchCourses]);
 
   const onSubmit = async (data: CourseFormData) => {
-    const formData = new FormData();
-
-    formData.append('title', data.title);
-    formData.append('description', data.description);
-    formData.append('price', String(data.price));
-
-    if (thumbnailFile) {
-      formData.append('thumbnail', thumbnailFile);
-    }
-
-    if (data.videos) {
-      data.videos.forEach((video, index) => {
-        formData.append(`videos[${index}][title]`, video.title);
-        if (video.description) {
-          formData.append(`videos[${index}][description]`, video.description);
-        }
-        if (video._id) {
-          formData.append(`videos[${index}][_id]`, video._id);
-        }
-        const videoFile = videoFiles[index];
-        if (videoFile) {
-          formData.append(`videos[${index}][video_file]`, videoFile);
-        }
-      });
-    }
-
     try {
-      const isUpdating = !!data._id;
-      const url = isUpdating ? `/api/admin/courses/${data._id}` : '/api/admin/courses';
+      const isUpdating = !!selectedCourse;
+      const url = isUpdating ? `/api/admin/courses/${selectedCourse._id}` : '/api/admin/courses';
       const method = isUpdating ? 'PUT' : 'POST';
 
-      const response = await fetchWithAuth(url, {
-        method: method,
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to save course');
+      const coursePayload = new FormData();
+      coursePayload.append('title', data.title);
+      coursePayload.append('description', data.description);
+      coursePayload.append('price', data.price.toString());
+      if (thumbnailFile) {
+        coursePayload.append('thumbnail', thumbnailFile);
       }
 
-      toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully`);
-      setIsDialogOpen(false);
+      const courseResponse = await fetchWithAuth(url, { method, body: coursePayload });
+      const courseResult = await courseResponse.json();
+      if (!courseResponse.ok) throw new Error(courseResult.detail || 'Failed to save course details');
+
+      const courseId = courseResult.id;
+
+      if (data.videos && data.videos.length > 0) {
+        for (const video of data.videos) {
+          if (video.video_file) {
+            const videoPayload = new FormData();
+            videoPayload.append('title', video.title);
+            videoPayload.append('description', video.description || '');
+            videoPayload.append('file', video.video_file);
+            await fetchWithAuth(`/api/admin/courses/${courseId}/videos`, { method: 'POST', body: videoPayload });
+          }
+        }
+      }
+
+      toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully!`);
       fetchCourses();
-    } catch (error: any) {
-      toast.error(error.message);
+      resetDialogState();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'An unknown error occurred during course submission.';
+      toast.error(message);
     }
   };
 
@@ -198,7 +190,8 @@ export default function AdminCourses() {
       setIsDeleteDialogOpen(false);
       fetchCourses();
     } catch (error) {
-      toast.error('Failed to delete course');
+      const message = error instanceof Error ? error.message : 'Failed to delete course';
+      toast.error(message);
     }
   };
 
