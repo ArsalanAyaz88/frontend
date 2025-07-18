@@ -22,7 +22,7 @@ interface UserSession {
 
 // IMPORTANT: Replace this with the actual URL of your deployed Python backend.
 // It should look something like: https://your-backend-app.onrender.com/api/admin
-const API_BASE_URL = '/api'; // TODO: Replace with your actual backend URL
+const API_BASE_URL = 'https://student-portal-lms-seven.vercel.app'; // TODO: Replace with your actual backend URL
 
 // Create axios instance with default config
 const api: AxiosInstance = axios.create({
