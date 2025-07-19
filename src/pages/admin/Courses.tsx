@@ -139,7 +139,7 @@ export default function AdminCourses() {
       }
 
       const courseResponse = isUpdating
-        ? await api.put(`/api/admin/courses/${selectedCourse?._id}`, courseFormData)
+        ? await api.put(`/api/admin/courses/${selectedCourse?.id}`, courseFormData)
         : await api.post('/api/admin/courses', courseFormData);
 
       const courseId = courseResponse.data.id || selectedCourse?._id;
