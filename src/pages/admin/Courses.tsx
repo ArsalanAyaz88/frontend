@@ -298,10 +298,10 @@ export default function AdminCourses() {
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel htmlFor="difficulty_level" className="text-right">Difficulty</FormLabel>
+                  <FormLabel htmlFor="difficulty_level" className="text-right text-white">Difficulty</FormLabel>
                   <FormField control={form.control} name="difficulty_level" render={({ field }) => (
                     <FormControl>
-                      <select id="difficulty_level" {...field} className="p-2 border rounded col-span-3">
+                      <select id="difficulty_level" {...field} className="p-2 border rounded col-span-3 bg-transparent text-black">
                         <option value="Beginner">Beginner</option>
                         <option value="Intermediate">Intermediate</option>
                         <option value="Advanced">Advanced</option>
@@ -338,10 +338,10 @@ export default function AdminCourses() {
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel htmlFor="status" className="text-right">Status</FormLabel>
+                  <FormLabel htmlFor="status" className="text-right text-white">Status</FormLabel>
                   <FormField control={form.control} name="status" render={({ field }) => (
                     <FormControl>
-                      <select id="status" {...field} className="p-2 border rounded col-span-3">
+                      <select id="status" {...field} className="p-2 border rounded col-span-3 bg-transparent text-black">
                         <option value="draft">Draft</option>
                         <option value="active">Active</option>
                       </select>
