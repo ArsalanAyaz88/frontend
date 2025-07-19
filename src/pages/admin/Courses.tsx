@@ -262,7 +262,7 @@ export default function AdminCourses() {
                   </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => openEditDialog(course)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(course._id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(course.id)}><Trash2 className="h-4 w-4" /></Button>
                   </TableCell>
                 </TableRow>
               ))
