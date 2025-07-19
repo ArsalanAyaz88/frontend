@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { PlusCircle, Trash2, Pencil, X } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Components
@@ -15,21 +15,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import { FileUploader } from '@/components/upload/FileUploader';
+
 import { api } from '@/lib/api';
 
 // Types
-interface Video {
-  _id?: string;
-  id?: string;
-  title: string;
-  description?: string;
-  video_url?: string;
-  video_file?: File | null;
-  previewUrl?: string;
-}
-
 interface Course {
   _id: string;
   id: string;
@@ -39,25 +29,16 @@ interface Course {
   total_enrollments: number;
   is_published: boolean;
   thumbnail_url?: string;
-  videos?: Video[];
   status?: string;
   difficulty_level?: string;
   outcomes?: string;
   prerequisites?: string;
   curriculum?: string;
+  videos?: any[];
 }
 
 
 // Zod Schemas
-const videoSchema = z.object({
-  _id: z.string().optional(),
-  title: z.string().min(1, 'Video title is required'),
-  description: z.string().optional(),
-  video_url: z.string().optional(),
-  video_file: z.any().optional(),
-  previewUrl: z.string().optional(),
-});
-
 const courseFormSchema = z.object({
   _id: z.string().optional(),
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -69,7 +50,6 @@ const courseFormSchema = z.object({
   prerequisites: z.string().optional(),
   curriculum: z.string().optional(),
   status: z.string().optional(),
-  videos: z.array(videoSchema).optional(),
 });
 
 type CourseFormData = z.infer<typeof courseFormSchema>;
@@ -84,7 +64,8 @@ export default function AdminCourses() {
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({});
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+
 
   const form = useForm<CourseFormData>({
     resolver: zodResolver(courseFormSchema),
@@ -97,15 +78,11 @@ export default function AdminCourses() {
       prerequisites: '',
       curriculum: '',
       status: 'draft',
-      videos: [],
       thumbnail: null,
     },
   });
 
-  const { fields, append, remove, update } = useFieldArray({
-    control: form.control,
-    name: 'videos',
-  });
+
 
   const fetchCourses = useCallback(async () => {
     setLoading(true);
@@ -136,7 +113,7 @@ export default function AdminCourses() {
         const thumbFormData = new FormData();
         thumbFormData.append('file', thumbnailFile);
         try {
-          const res = await api.post('/api/upload/image', thumbFormData);
+          const res = await api.post('/api/admin/upload/image', thumbFormData);
           thumbnailUrl = res.data.url;
         } catch (error) {
           console.error('Thumbnail upload failed:', error);
@@ -173,49 +150,7 @@ export default function AdminCourses() {
         return;
       }
 
-      // Step 3: Upload videos one by one
-      const videoFiles = data.videos?.map(v => v.video_file).filter(f => f instanceof File) || [];
-      if (videoFiles.length > 0) {
-        toast.info(`Uploading ${videoFiles.length} videos...`);
-        for (let i = 0; i < videoFiles.length; i++) {
-          const file = videoFiles[i];
-          try {
-            const signatureResponse = await api.post('/api/admin/generate-video-upload-signature');
-            const { signature, timestamp, api_key } = signatureResponse.data;
 
-            const videoFormData = new FormData();
-            videoFormData.append('file', file);
-            videoFormData.append('api_key', api_key);
-            videoFormData.append('timestamp', timestamp);
-            videoFormData.append('signature', signature);
-            videoFormData.append('folder', 'videos');
-
-            const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/video/upload`;
-            const cloudinaryResponse = await axios.post(cloudinaryUrl, videoFormData, {
-              headers: { 'Content-Type': 'multipart/form-data' },
-              onUploadProgress: (progressEvent) => {
-                const total = progressEvent.total ?? 0;
-                const percentCompleted = Math.round((progressEvent.loaded * 100) / total);
-                setUploadProgress(prev => ({ ...prev, [i]: percentCompleted }));
-              },
-            });
-
-            const { public_id, secure_url, duration } = cloudinaryResponse.data;
-
-            await api.post(`/api/admin/courses/${courseId}/videos`, {
-              title: file.name,
-              video_url: secure_url,
-              public_id: public_id,
-              duration: duration,
-            });
-
-            toast.success(`Uploaded ${file.name} successfully!`);
-          } catch (uploadError) {
-            console.error(`Failed to upload ${file.name}:`, uploadError);
-            toast.error(`Failed to upload ${file.name}.`);
-          }
-        }
-      }
 
       toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully!`);
       fetchCourses();
@@ -238,17 +173,7 @@ export default function AdminCourses() {
     }
   };
 
-  const handleVideoChange = (files: File[], index: number) => {
-    if (files.length > 0) {
-      const file = files[0];
-      const currentVideo = form.getValues(`videos.${index}`);
-      update(index, {
-        ...currentVideo,
-        video_file: file,
-        previewUrl: URL.createObjectURL(file),
-      });
-    }
-  };
+
 
   const openDeleteDialog = (courseId: string) => {
     setCourseToDelete(courseId);
@@ -272,10 +197,8 @@ export default function AdminCourses() {
 
   const openEditDialog = (course: Course) => {
     setSelectedCourse(course);
-    form.reset({
-      ...course,
-      videos: course.videos?.map(v => ({ ...v, video_file: null, previewUrl: v.video_url, description: v.description || '' })) || [],
-    });
+    const { videos, ...courseData } = course;
+    form.reset(courseData);
     setThumbnailPreview(course.thumbnail_url || null);
     setIsDialogOpen(true);
   };
@@ -290,7 +213,6 @@ export default function AdminCourses() {
       prerequisites: '',
       curriculum: '',
       status: 'draft',
-      videos: [],
       thumbnail: null,
     });
     setSelectedCourse(null);
@@ -425,28 +347,6 @@ export default function AdminCourses() {
                       </select>
                     </FormControl>
                   )} />
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-4">Videos</h3>
-                  <div className="space-y-6">
-                    {fields.map((field, index) => (
-                      <div key={field.id} className="p-4 border rounded-md relative space-y-4">
-                        <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => remove(index)}><X className="h-4 w-4" /></Button>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField control={form.control} name={`videos.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} placeholder="Video title" /></FormControl><FormMessage /></FormItem>)} />
-                          <FormItem>
-                            <FormLabel>Video File</FormLabel>
-                            <FormControl><FileUploader onUpload={(files) => handleVideoChange(files, index)} value={field.video_file ? [field.video_file] : []} maxSize={500 * 1024 * 1024} multiple={false} /></FormControl>
-                          </FormItem>
-                        </div>
-                        {field.previewUrl && <video src={field.previewUrl} controls className="w-full rounded-md" />}
-                        {uploadProgress[index] > 0 && <Progress value={uploadProgress[index]} className="w-full h-2.5" />}
-                        <FormField control={form.control} name={`videos.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} placeholder="Video description" rows={2} /></FormControl></FormItem>)} />
-                      </div>
-                    ))}
-                  </div>
-                  <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ title: '', description: '', video_file: null, previewUrl: '' })}><PlusCircle className="mr-2 h-4 w-4" /> Add Video</Button>
                 </div>
 
                 <DialogFooter>
