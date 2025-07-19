@@ -301,7 +301,7 @@ export default function AdminCourses() {
                   <FormLabel htmlFor="difficulty_level" className="text-right">Difficulty</FormLabel>
                   <FormField control={form.control} name="difficulty_level" render={({ field }) => (
                     <FormControl>
-                      <select id="difficulty_level" {...field} className="p-2 border rounded col-span-3 bg-transparent text-black">
+                      <select id="difficulty_level" {...field} className="p-2 border rounded col-span-3">
                         <option value="Beginner">Beginner</option>
                         <option value="Intermediate">Intermediate</option>
                         <option value="Advanced">Advanced</option>
@@ -341,7 +341,7 @@ export default function AdminCourses() {
                   <FormLabel htmlFor="status" className="text-right">Status</FormLabel>
                   <FormField control={form.control} name="status" render={({ field }) => (
                     <FormControl>
-                      <select id="status" {...field} className="p-2 text-black border rounded col-span-3 bg-transparent">
+                      <select id="status" {...field} className="p-2 border rounded col-span-3">
                         <option value="draft">Draft</option>
                         <option value="active">Active</option>
                       </select>
