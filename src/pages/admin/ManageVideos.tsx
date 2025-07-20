@@ -437,7 +437,7 @@ const ManageVideos: React.FC = () => {
       </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{currentVideo?.id ? 'Edit Video' : 'Add New Video'}</DialogTitle>
             <p className="text-sm text-muted-foreground">{currentVideo?.id ? 'Update the video details or upload a new file to replace the existing one.' : 'Upload a video and add its details.'}</p>
@@ -490,7 +490,7 @@ const ManageVideos: React.FC = () => {
 
       {/* Quiz Management Dialog */}
       <Dialog open={isQuizModalOpen} onOpenChange={setIsQuizModalOpen}>
-        <DialogContent className="max-w-4xl h-[90vh]">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Quiz</DialogTitle>
             <p className="text-sm text-muted-foreground">Create or edit the quiz for this video.</p>
