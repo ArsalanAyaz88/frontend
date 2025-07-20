@@ -227,14 +227,23 @@ const ManageVideos: React.FC = () => {
         body: JSON.stringify(videoData),
       });
 
-      const result = await handleApiResponse(response);
-      if (result) {
-        toast.success(`Video ${currentVideo.id ? 'updated' : 'added'} successfully`);
-        fetchVideosByCourse(selectedCourseId);
-        setIsModalOpen(false);
-        setCurrentVideo(null);
-        setSelectedFile(null);
+      const savedVideo = await handleApiResponse(response) as Video;
+      toast.success(`Video ${currentVideo.id ? 'updated' : 'created'} successfully!`);
+      
+      // Close the video modal and reset state
+      setIsModalOpen(false);
+      setCurrentVideo(null);
+      setSelectedFile(null);
+      setUploadProgress(0);
+
+      // Refresh the video list in the background
+      fetchVideosByCourse(selectedCourseId);
+
+      // If a new video was created, open the quiz modal for it
+      if (!currentVideo.id && savedVideo.id) {
+        handleOpenQuizModal(savedVideo.id);
       }
+
     } catch (error: any) {
       toast.error(error.message || 'An unexpected error occurred while saving video data.');
       console.error(error);
