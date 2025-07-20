@@ -251,36 +251,42 @@ const ManageVideos: React.FC = () => {
   };
 
   const handleOpenQuizModal = async (videoId: string) => {
-    setLoadingQuiz(true);
     setIsQuizModalOpen(true);
+    setLoadingQuiz(true);
+    setCurrentQuiz(null); // Reset previous state
     try {
       const response = await fetchWithAuth(`/api/admin/videos/${videoId}/quiz`);
-      // Check if the response is OK and has content
+      
       if (response.ok) {
-        const data = await handleApiResponse(response) as Quiz;
-        if (data && data.id) {
-          setCurrentQuiz(data);
-          return;
-        }
+        const quizData = await handleApiResponse(response) as Quiz;
+        // Ensure questions and options are not null
+        quizData.questions = quizData.questions || [];
+        quizData.questions.forEach(q => q.options = q.options || []);
+        setCurrentQuiz(quizData);
+        toast.info("Loaded existing quiz for editing.");
+      } else if (response.status === 404) {
+        // No quiz exists, prepare a new one
+        setCurrentQuiz({
+          id: '', // Will be set by backend
+          video_id: videoId,
+          title: '',
+          description: '',
+          questions: [
+            {
+              text: '',
+              options: [{ text: '', is_correct: true }, { text: '', is_correct: false }]
+            }
+          ]
+        });
+        toast.info("No existing quiz found. You can create one now.");
+      } else {
+        // Handle other potential errors like 500
+        throw new Error(`Server responded with status: ${response.status}`);
       }
-      // If response is not OK (e.g., 404) or data is invalid, create a new quiz structure
-      setCurrentQuiz({
-        id: '', // No ID for a new quiz
-        title: `Quiz for ${currentVideo?.title || 'Video'}`,
-        description: 'A quiz to test your knowledge on the video content.',
-        video_id: videoId,
-        questions: [],
-      });
     } catch (error) {
-      toast.error('Failed to fetch quiz data.');
-      // Initialize a new quiz object on error as well
-      setCurrentQuiz({
-        id: '',
-        title: `Quiz for ${currentVideo?.title || 'Video'}`,
-        description: 'A quiz to test your knowledge on the video content.',
-        video_id: videoId,
-        questions: [],
-      });
+      console.error("Failed to fetch quiz data:", error);
+      toast.error("Could not load quiz data. Please try again.");
+      setIsQuizModalOpen(false); // Close modal on critical error
     } finally {
       setLoadingQuiz(false);
     }
