@@ -210,7 +210,7 @@ const ManageVideos: React.FC = () => {
 
     // 3. Save video data to our database
     const method = currentVideo.id ? 'PUT' : 'POST';
-    const endpoint = currentVideo.id ? `/api/v1/videos/${currentVideo.id}` : `/api/v1/courses/${selectedCourseId}/videos`;
+    const endpoint = currentVideo.id ? `/api/admin/videos/${currentVideo.id}` : '/api/admin/videos';
     
     const videoData = { ...currentVideo, url: videoUrl, course_id: selectedCourseId };
 
