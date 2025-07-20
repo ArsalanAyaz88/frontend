@@ -221,7 +221,6 @@ const ManageVideos: React.FC = () => {
           });
 
       const savedVideo = await handleApiResponse(response) as Video;
-      console.log('Received saved video from backend:', savedVideo);
 
       if (currentVideo.id) {
         // This is an UPDATE
