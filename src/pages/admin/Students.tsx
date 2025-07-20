@@ -123,39 +123,7 @@ const AdminStudents = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-10"
-              onClick={() => {
-                // Convert students data to CSV
-                const headers = ['ID', 'Email', 'Role', 'Status'];
-                const csvContent = [
-                  headers.join(','),
-                  ...filteredStudents.map(student => (
-                    [
-                      `"${student.id}"`,
-                      `"${student.email}"`,
-                      `"${student.role}"`,
-                      `"${student.is_active ? 'Active' : 'Inactive'}"`
-                    ].join(',')
-                  ))
-                ].join('\n');
-
-                // Create download link
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.setAttribute('href', url);
-                link.setAttribute('download', `students_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
+            
           </div>
         </div>
 
@@ -193,25 +161,6 @@ const AdminStudents = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-10 px-3">
-                      <Filter className="h-4 w-4 mr-2" />
-                      Filter
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[200px]">
-                    <DropdownMenuItem onClick={() => setStatusFilter("all")}>
-                      All Status
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("active")}>
-                      Active
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>
-                      Inactive
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             </div>
           </div>
