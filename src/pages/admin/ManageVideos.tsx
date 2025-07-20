@@ -245,7 +245,7 @@ const ManageVideos: React.FC = () => {
     setLoadingQuiz(true);
     setIsQuizModalOpen(true);
     try {
-      const response = await fetchWithAuth(`admin/videos/${videoId}/quiz`);
+      const response = await fetchWithAuth(`/api/admin/videos/${videoId}/quiz`);
       // Check if the response is OK and has content
       if (response.ok) {
         const data = await handleApiResponse(response) as Quiz;
@@ -340,7 +340,7 @@ const ManageVideos: React.FC = () => {
     if (!currentQuiz) return;
 
     try {
-      const endpoint = `admin/videos/${currentQuiz.video_id}/quiz`;
+      const endpoint = `/api/admin/videos/${currentQuiz.video_id}/quiz`;
       const quizData = { 
         title: currentQuiz.title,
         description: currentQuiz.description,
