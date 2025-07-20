@@ -212,7 +212,17 @@ const ManageVideos: React.FC = () => {
     const method = currentVideo.id ? 'PUT' : 'POST';
     const endpoint = currentVideo.id ? `/api/admin/videos/${currentVideo.id}` : '/api/admin/videos';
     
-    const videoData = { ...currentVideo, url: videoUrl, course_id: selectedCourseId };
+    const videoData: any = {
+      title: currentVideo.title,
+      description: currentVideo.description,
+      video_url: videoUrl, // Use the correct field name
+      course_id: selectedCourseId,
+      order: currentVideo.order
+    };
+
+    if (currentVideo.id) {
+      videoData.id = currentVideo.id;
+    }
 
     try {
       const response = await fetchWithAuth(endpoint, {
