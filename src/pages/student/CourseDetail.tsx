@@ -119,6 +119,21 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
     }
   };
 
+  const handleVideoSelect = (video: VideoInfo) => {
+    if (!video.is_accessible) {
+      toast({
+        title: "Video Locked",
+        description: "You must pass the previous quiz to unlock this video.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // setSelectedVideo(video);
+    if (video.quiz) {
+      console.log("This video has a quiz.");
+    }
+  };
+
   if (isLoading) return <div className="flex justify-center items-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (error) return <p className="text-destructive p-4">{error}</p>;
   if (!content || (Array.isArray(content) && content.length === 0)) return <p className="p-4 text-muted-foreground">No information available.</p>;
@@ -133,32 +148,48 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
                 <div className="flex items-center gap-4">
                   {!video.is_accessible && <Lock className="h-6 w-6 text-muted-foreground" />}
                   <div>
-                    <CardTitle className={`${!video.is_accessible ? 'text-muted-foreground' : ''}`}>{video.title}</CardTitle>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        {!video.is_accessible && <Lock className="h-5 w-5 mr-2 text-muted-foreground" />}
+                        <span className={`text-xl font-semibold ${!video.is_accessible ? 'text-muted-foreground' : ''}`}>{video.title}</span>
+                      </div>
+                      {video.is_accessible && (
+                        <button 
+                          onClick={() => handleToggleWatched(video.id)} 
+                          className="flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          {video.watched ? 
+                            <CheckCircle2 className="h-5 w-5 mr-1 text-green-500" /> : 
+                            <Circle className="h-5 w-5 mr-1" />
+                          }
+                          {video.watched ? 'Mark as Unwatched' : 'Mark as Watched'}
+                        </button>
+                      )}
+                    </CardTitle>
                     {video.description && <p className="text-muted-foreground text-sm mt-1">{video.description}</p>}
                   </div>
                 </div>
                 {video.is_accessible && (
-                  <Button variant="ghost" size="sm" onClick={() => handleToggleWatched(video.id)} className="shrink-0 ml-4">
-                    {video.watched ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground"/>}
-                    <span className="ml-2">{video.watched ? 'Completed' : 'Mark as Complete'}</span>
+                  <Button variant="ghost" size="sm" onClick={() => handleVideoSelect(video)} className="shrink-0 ml-4">
+                    Watch Video
                   </Button>
                 )}
               </div>
             </CardHeader>
             {video.is_accessible && (
               <CardContent>
-                <div className="aspect-video bg-muted rounded-lg overflow-hidden mb-4">
-                  <video src={video.url} controls width="100%" />
+                <div className="mt-4 prose max-w-none prose-sm text-muted-foreground">
+                  <p>{video.description}</p>
                 </div>
-                {video.quiz && video.quiz_status === 'not_taken' && 
-                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                    <h4 className="font-semibold text-lg mb-2">Quiz: {video.quiz.title}</h4>
-                    <Quiz 
-                      quiz={video.quiz} 
-                      onQuizComplete={handleQuizSubmitSuccess} 
-                    />
+
+                {/* Quiz Section */}
+                {video.is_accessible && video.quiz && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-lg font-semibold mb-2">Quiz: {video.quiz.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-4">{video.quiz.description}</p>
+                    <Quiz quiz={video.quiz} onQuizComplete={handleQuizSubmitSuccess} />
                   </div>
-                }
+                )}
                 {video.quiz_status === 'passed' && 
                   <Badge variant="secondary" className="bg-green-100 text-green-800">Quiz Passed</Badge>
                 }
