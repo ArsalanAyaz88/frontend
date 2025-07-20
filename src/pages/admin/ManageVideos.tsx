@@ -33,7 +33,7 @@ interface Video {
   id: string;
   title: string;
   description: string;
-  video_url: string;
+  cloudinary_url: string;
   course_id: string;
   order: number;
   // We will add quiz details later
@@ -124,7 +124,7 @@ const ManageVideos: React.FC = () => {
       id: '',
       title: '',
       description: '',
-      video_url: '',
+      cloudinary_url: '',
       course_id: selectedCourseId,
       order: videos.length > 0 ? Math.max(...videos.map(v => v.order)) + 1 : 1,
     });
@@ -155,26 +155,15 @@ const ManageVideos: React.FC = () => {
   const handleSave = async () => {
     if (!currentVideo || !selectedCourseId) return;
 
-    let videoUrl = currentVideo.video_url;
+    let videoUrl = currentVideo.cloudinary_url;
 
     if (selectedFile) {
       setIsUploading(true);
       setUploadProgress(0);
-
       try {
-        // 1. Get signature from our backend
-        const signatureResponse = await fetchWithAuth('/api/admin/create-upload-signature', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folder: 'videos' })
-        });
+        const sigResponse = await fetchWithAuth('/api/admin/cloudinary-signature');
+        const sigData = await handleApiResponse(sigResponse) as CloudinarySignature;
 
-        const sigData = await handleApiResponse<CloudinarySignature>(signatureResponse);
-        if (!sigData) {
-            throw new Error('Failed to get upload signature data.');
-        }
-
-        // 2. Upload to Cloudinary
         const formData = new FormData();
         formData.append('file', selectedFile);
         formData.append('api_key', sigData.api_key);
@@ -182,71 +171,70 @@ const ManageVideos: React.FC = () => {
         formData.append('signature', sigData.signature);
         formData.append('folder', sigData.folder);
 
-        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/video/upload`;
+        const onUploadProgress = (progressEvent: any) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        };
 
-        const uploadResponse = await axios.post(cloudinaryUrl, formData, {
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-            setUploadProgress(percentCompleted);
-          },
+        const uploadResponse = await axios.post(`https://api.cloudinary.com/v1_1/${sigData.cloud_name}/video/upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress,
         });
 
         videoUrl = uploadResponse.data.secure_url;
         toast.success('Video uploaded successfully!');
       } catch (error: any) {
         toast.error(error.message || 'Video upload failed. Please try again.');
-        console.error('Upload error:', error);
         setIsUploading(false);
-        return; // Stop execution if upload fails
-      } finally {
-        setIsUploading(false);
+        return;
       }
     }
 
     if (!videoUrl) {
-        toast.error('No video file selected or URL provided.');
-        return;
+      toast.error('No video URL available. Please upload a file.');
+      setIsUploading(false);
+      return;
     }
 
-    // 3. Save video data to our database
-    const method = currentVideo.id ? 'PUT' : 'POST';
-    const endpoint = currentVideo.id ? `/api/admin/videos/${currentVideo.id}` : '/api/admin/videos';
-    
     const videoData = {
       title: currentVideo.title,
       description: currentVideo.description,
       cloudinary_url: videoUrl,
       course_id: selectedCourseId,
-      order: currentVideo.order
+      order: currentVideo.order,
     };
 
     try {
-      const response = await fetchWithAuth(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(videoData),
-      });
+      const response = currentVideo.id
+        ? await fetchWithAuth(`/api/admin/videos/${currentVideo.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(videoData),
+          })
+        : await fetchWithAuth('/api/admin/videos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(videoData),
+          });
 
       const savedVideo = await handleApiResponse(response) as Video;
-      toast.success(`Video ${currentVideo.id ? 'updated' : 'created'} successfully!`);
-      
-      // Close the video modal and reset state
-      setIsModalOpen(false);
-      setCurrentVideo(null);
-      setSelectedFile(null);
-      setUploadProgress(0);
 
-      // Refresh the video list in the background
-      fetchVideosByCourse(selectedCourseId);
-
-      // If a new video was created, open the quiz modal for it
-      if (!currentVideo.id && savedVideo.id) {
+      if (currentVideo.id) {
+        setVideos(videos.map(v => v.id === savedVideo.id ? savedVideo : v));
+        toast.success('Video updated successfully!');
+      } else {
+        setVideos([...videos, savedVideo]);
+        toast.success('Video created successfully!');
         handleOpenQuizModal(savedVideo.id);
       }
 
-    } catch (error: any) {
-      toast.error(error.message || 'An unexpected error occurred while saving video data.');
-      console.error(error);
+      setIsModalOpen(false);
+      setCurrentVideo(null);
+      setSelectedFile(null);
+    } catch (error) {
+      toast.error('Failed to save video details.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -470,14 +458,23 @@ const ManageVideos: React.FC = () => {
               <Label htmlFor="description" className="text-right">Description</Label>
               <Textarea id="description" value={currentVideo?.description || ''} onChange={(e) => setCurrentVideo(prev => prev ? { ...prev, description: e.target.value } : null)} className="col-span-3" />
             </div>
+
+            {currentVideo?.id && currentVideo.cloudinary_url && (
+              <div className="space-y-2">
+                <Label>Current Video</Label>
+                <video src={currentVideo.cloudinary_url} controls className="w-full rounded-md"></video>
+                <p className="text-sm text-muted-foreground">To replace this video, upload a new file below.</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="video-file" className="text-right">Video File</Label>
               <div className="col-span-3">
                 <Input id="video-file" type="file" accept="video/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="mb-2" />
                 {isUploading && <Progress value={uploadProgress} className="w-full" />}
-                {currentVideo?.video_url && !selectedFile && (
+                {currentVideo?.cloudinary_url && !selectedFile && (
                   <div className="text-sm text-muted-foreground mt-2">
-                    Current video: <a href={currentVideo.video_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View</a>
+                    Current video: <a href={currentVideo.cloudinary_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View</a>
                   </div>
                 )}
               </div>
