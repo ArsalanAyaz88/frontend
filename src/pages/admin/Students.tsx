@@ -271,30 +271,7 @@ const AdminStudents = () => {
                             {student.role.charAt(0).toUpperCase() + student.role.slice(1)}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Open menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Profile
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Mail className="mr-2 h-4 w-4" />
-                                Send Message
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
-                                <UserX className="mr-2 h-4 w-4" />
-                                {student.is_active ? 'Deactivate' : 'Activate'} Account
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
+                        <TableCell></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
