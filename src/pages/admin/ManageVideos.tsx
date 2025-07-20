@@ -143,12 +143,20 @@ const ManageVideos: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this video?')) return;
 
     try {
-      // TODO: This endpoint needs to be created in the backend
       const response = await fetchWithAuth(`/api/admin/videos/${videoId}`, { method: 'DELETE' });
-      await handleApiResponse(response);
-      toast.success('Video deleted successfully!');
-      if (selectedCourseId) {
-        fetchVideosByCourse(selectedCourseId);
+      if (response.ok) {
+        toast.success('Video deleted successfully!');
+        if (selectedCourseId) {
+          fetchVideosByCourse(selectedCourseId); // Always refetch for perfect sync
+        }
+      } else if (response.status === 404) {
+        toast.error('Video not found or already deleted. Syncing list...');
+        if (selectedCourseId) {
+          fetchVideosByCourse(selectedCourseId);
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.detail || 'Failed to delete video.');
       }
     } catch (error) {
       toast.error((error as Error).message || 'Failed to delete video.');
