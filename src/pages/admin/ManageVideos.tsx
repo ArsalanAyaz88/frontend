@@ -215,7 +215,7 @@ const ManageVideos: React.FC = () => {
     const videoData = {
       title: currentVideo.title,
       description: currentVideo.description,
-      video_url: videoUrl,
+      cloudinary_url: videoUrl,
       course_id: selectedCourseId,
       order: currentVideo.order
     };
