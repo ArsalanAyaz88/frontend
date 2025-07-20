@@ -115,26 +115,29 @@ const ManageVideos: React.FC = () => {
     }
   }, [selectedCourseId, fetchVideosByCourse]);
 
-  const handleAdd = () => {
-    if (!selectedCourseId) {
-      toast.error('Please select a course first to add a video.');
-      return;
+  const handleOpenModal = (video: Video | null = null) => {
+    if (video) {
+      setCurrentVideo(video);
+    } else {
+      if (!selectedCourseId) {
+        toast.error('Please select a course first to add a video.');
+        return;
+      }
+      const nextOrder = videos.length > 0 ? Math.max(...videos.map(v => v.order)) + 1 : 1;
+      setCurrentVideo({ id: '', title: '', description: '', cloudinary_url: '', course_id: selectedCourseId, order: nextOrder });
     }
-    setCurrentVideo({
-      id: '',
-      title: '',
-      description: '',
-      cloudinary_url: '',
-      course_id: selectedCourseId,
-      order: videos.length > 0 ? Math.max(...videos.map(v => v.order)) + 1 : 1,
-    });
     setIsModalOpen(true);
   };
 
-  const handleEdit = (video: Video) => {
-    setCurrentVideo(video);
-    setIsModalOpen(true);
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setCurrentVideo(null);
+    setSelectedFile(null);
+    setUploadProgress(0);
+    setIsUploading(false);
   };
+
+
 
   const handleDelete = async (videoId: string) => {
     if (!window.confirm('Are you sure you want to delete this video?')) return;
@@ -220,17 +223,17 @@ const ManageVideos: React.FC = () => {
       const savedVideo = await handleApiResponse(response) as Video;
 
       if (currentVideo.id) {
+        // This is an UPDATE
         setVideos(videos.map(v => v.id === savedVideo.id ? savedVideo : v));
         toast.success('Video updated successfully!');
+        handleCloseModal(); // Close modal and reset state
       } else {
-        setVideos([...videos, savedVideo]);
+        // This is a CREATE
+        setVideos(prevVideos => [...prevVideos, savedVideo]);
         toast.success('Video created successfully!');
-        handleOpenQuizModal(savedVideo.id);
+        setIsModalOpen(false); // Programmatically close the video modal
+        handleOpenQuizModal(savedVideo); // Immediately open the quiz modal with context
       }
-
-      setIsModalOpen(false);
-      setCurrentVideo(null);
-      setSelectedFile(null);
     } catch (error) {
       toast.error('Failed to save video details.');
     } finally {
@@ -238,43 +241,32 @@ const ManageVideos: React.FC = () => {
     }
   };
 
-  const handleOpenQuizModal = async (videoId: string) => {
+  const handleOpenQuizModal = async (video: Video) => {
+    if (!video) {
+      toast.error("Video not found.");
+      return;
+    }
+
+    setCurrentVideo(video);
     setIsQuizModalOpen(true);
     setLoadingQuiz(true);
-    setCurrentQuiz(null); // Reset previous state
+
     try {
-      const response = await fetchWithAuth(`/api/admin/videos/${videoId}/quiz`);
-      
+      const response = await fetchWithAuth(`/api/admin/videos/${video.id}/quiz`);
       if (response.ok) {
-        const quizData = await handleApiResponse(response) as Quiz;
-        // Ensure questions and options are not null
-        quizData.questions = quizData.questions || [];
-        quizData.questions.forEach(q => q.options = q.options || []);
-        setCurrentQuiz(quizData);
-        toast.info("Loaded existing quiz for editing.");
+        const existingQuiz = await response.json();
+        setCurrentQuiz(existingQuiz);
       } else if (response.status === 404) {
-        // No quiz exists, prepare a new one
-        setCurrentQuiz({
-          id: '', // Will be set by backend
-          video_id: videoId,
-          title: '',
-          description: '',
-          questions: [
-            {
-              text: '',
-              options: [{ text: '', is_correct: true }, { text: '', is_correct: false }]
-            }
-          ]
-        });
-        toast.info("No existing quiz found. You can create one now.");
+        // No quiz exists, initialize a new one for the form
+        setCurrentQuiz({ id: '', title: '', description: '', questions: [], video_id: video.id });
       } else {
-        // Handle other potential errors like 500
-        throw new Error(`Server responded with status: ${response.status}`);
+        const errorData = await response.json();
+        toast.error(errorData.detail || 'Failed to load quiz data.');
+        setIsQuizModalOpen(false);
       }
     } catch (error) {
-      console.error("Failed to fetch quiz data:", error);
-      toast.error("Could not load quiz data. Please try again.");
-      setIsQuizModalOpen(false); // Close modal on critical error
+      toast.error('An error occurred while fetching the quiz.');
+      setIsQuizModalOpen(false);
     } finally {
       setLoadingQuiz(false);
     }
@@ -394,7 +386,7 @@ const ManageVideos: React.FC = () => {
                     </SelectContent>
                 </Select>
             )}
-            <Button onClick={handleAdd} disabled={!selectedCourseId}>
+            <Button onClick={() => handleOpenModal()} disabled={!selectedCourseId}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Video
             </Button>
         </div>
@@ -425,7 +417,7 @@ const ManageVideos: React.FC = () => {
                     <TableCell className="font-medium">{video.title}</TableCell>
                     <TableCell>{video.description}</TableCell>
                     <TableCell className="text-right space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit(video)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenModal(video)}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="destructive" size="sm" onClick={() => handleDelete(video.id)}><Trash2 className="h-4 w-4" /></Button>
                     </TableCell>
                   </TableRow>
@@ -441,7 +433,7 @@ const ManageVideos: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(isOpen) => { if (!isOpen && isModalOpen) handleCloseModal(); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{currentVideo?.id ? 'Edit Video' : 'Add New Video'}</DialogTitle>
@@ -481,11 +473,11 @@ const ManageVideos: React.FC = () => {
                 )}
               </div>
             </div>
-            {currentVideo?.id && (
+            {currentVideo && (
               <div className="grid grid-cols-4 items-center gap-4 pt-4 border-t mt-4">
                 <Label className="text-right">Quiz</Label>
                 <div className="col-span-3">
-                    <Button variant="outline" onClick={() => handleOpenQuizModal(currentVideo!.id)}>Manage Quiz</Button>
+                    <Button variant="outline" onClick={() => handleOpenQuizModal(currentVideo!)}>Manage Quiz</Button>
                 </div>
               </div>
             )}
@@ -503,7 +495,7 @@ const ManageVideos: React.FC = () => {
       </Dialog>
 
       {/* Quiz Management Dialog */}
-      <Dialog open={isQuizModalOpen} onOpenChange={setIsQuizModalOpen}>
+      <Dialog open={isQuizModalOpen} onOpenChange={(isOpen) => { if (!isOpen && isQuizModalOpen) setIsQuizModalOpen(false); }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Quiz</DialogTitle>
