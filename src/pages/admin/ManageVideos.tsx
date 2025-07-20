@@ -221,6 +221,7 @@ const ManageVideos: React.FC = () => {
           });
 
       const savedVideo = await handleApiResponse(response) as Video;
+      console.log('Received saved video from backend:', savedVideo);
 
       if (currentVideo.id) {
         // This is an UPDATE
@@ -232,7 +233,8 @@ const ManageVideos: React.FC = () => {
         setVideos(prevVideos => [...prevVideos, savedVideo]);
         toast.success('Video created successfully!');
         setIsModalOpen(false); // Programmatically close the video modal
-        handleOpenQuizModal(savedVideo); // Immediately open the quiz modal with context
+        // Ensure the savedVideo object with the new ID is passed correctly
+        handleOpenQuizModal(savedVideo);
       }
     } catch (error) {
       toast.error('Failed to save video details.');
@@ -241,9 +243,9 @@ const ManageVideos: React.FC = () => {
     }
   };
 
-  const handleOpenQuizModal = async (video: Video) => {
-    if (!video) {
-      toast.error("Video not found.");
+        const handleOpenQuizModal = async (video: Video) => {
+    if (!video || !video.id) {
+      toast.error("Cannot open quiz modal: Invalid video data.");
       return;
     }
 
@@ -252,6 +254,7 @@ const ManageVideos: React.FC = () => {
     setLoadingQuiz(true);
 
     try {
+      // Use video.id directly from the argument to prevent issues with stale state
       const response = await fetchWithAuth(`/api/admin/videos/${video.id}/quiz`);
       if (response.ok) {
         const existingQuiz = await response.json();
