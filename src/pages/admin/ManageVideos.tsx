@@ -35,6 +35,7 @@ interface Video {
   description: string;
   video_url: string;
   course_id: string;
+  order: number;
   // We will add quiz details later
 }
 
@@ -125,6 +126,7 @@ const ManageVideos: React.FC = () => {
       description: '',
       video_url: '',
       course_id: selectedCourseId,
+      order: videos.length > 0 ? Math.max(...videos.map(v => v.order)) + 1 : 1,
     });
     setIsModalOpen(true);
   };
@@ -437,11 +439,15 @@ const ManageVideos: React.FC = () => {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="title" className="text-right">Title</Label>
-              <Input id="title" value={currentVideo?.title || ''} onChange={(e) => setCurrentVideo({ ...currentVideo!, title: e.target.value })} className="col-span-3" />
+              <Input id="title" value={currentVideo?.title || ''} onChange={(e) => setCurrentVideo(prev => prev ? { ...prev, title: e.target.value } : null)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="order" className="text-right">Order</Label>
+              <Input id="order" type="number" value={currentVideo?.order || 0} onChange={(e) => setCurrentVideo(prev => prev ? { ...prev, order: parseInt(e.target.value, 10) } : null)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="description" className="text-right">Description</Label>
-              <Textarea id="description" value={currentVideo?.description || ''} onChange={(e) => setCurrentVideo({ ...currentVideo!, description: e.target.value })} className="col-span-3" />
+              <Textarea id="description" value={currentVideo?.description || ''} onChange={(e) => setCurrentVideo(prev => prev ? { ...prev, description: e.target.value } : null)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="video-file" className="text-right">Video File</Label>

@@ -1,10 +1,10 @@
 import { useEffect, useState, FC } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Check, BookOpen, Target, ListVideo, CheckCircle2, Circle, Lock, UploadCloud } from 'lucide-react';
+import { Loader2, Check, BookOpen, Target, ListVideo, CheckCircle2, Circle, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -41,12 +41,13 @@ interface QuizData {
 interface VideoInfo {
   id: string;
   title: string;
-  cloudinary_url: string;
+  url: string; // Changed from cloudinary_url
   description: string | null;
-  completed: boolean;
+  order: number;
+  watched: boolean; // Changed from completed
   is_accessible: boolean;
   quiz: QuizData | null;
-  quiz_passed: boolean;
+  quiz_status: 'passed' | 'failed' | 'not_taken' | null;
 }
 
 interface EnrollmentStatus {
@@ -89,6 +90,14 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
 
 
 
+  const handleQuizSubmitSuccess = () => {
+    toast({
+      title: "Success",
+      description: "Quiz submitted successfully! Your progress has been updated.",
+    });
+    loadContent(); // This is the key change: reload videos to unlock the next one
+  };
+
   const handleToggleWatched = async (videoId: string) => {
     try {
       await fetchWithAuth(`/api/courses/videos/${videoId}/complete`, { method: 'POST' });
@@ -130,8 +139,8 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
                 </div>
                 {video.is_accessible && (
                   <Button variant="ghost" size="sm" onClick={() => handleToggleWatched(video.id)} className="shrink-0 ml-4">
-                    {video.completed ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground"/>}
-                    <span className="ml-2">{video.completed ? 'Completed' : 'Mark as Complete'}</span>
+                    {video.watched ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground"/>}
+                    <span className="ml-2">{video.watched ? 'Completed' : 'Mark as Complete'}</span>
                   </Button>
                 )}
               </div>
@@ -139,13 +148,22 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
             {video.is_accessible && (
               <CardContent>
                 <div className="aspect-video bg-muted rounded-lg overflow-hidden mb-4">
-                  <video src={video.cloudinary_url} controls width="100%" />
+                  <video src={video.url} controls width="100%" />
                 </div>
-                {video.quiz && !video.quiz_passed && 
-                  <Quiz quiz={video.quiz} onQuizComplete={loadContent} />
+                {video.quiz && video.quiz_status === 'not_taken' && 
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold text-lg mb-2">Quiz: {video.quiz.title}</h4>
+                    <Quiz 
+                      quiz={video.quiz} 
+                      onQuizComplete={handleQuizSubmitSuccess} 
+                    />
+                  </div>
                 }
-                {video.quiz_passed && 
+                {video.quiz_status === 'passed' && 
                   <Badge variant="secondary" className="bg-green-100 text-green-800">Quiz Passed</Badge>
+                }
+                {video.quiz_status === 'failed' && 
+                  <Badge variant="destructive">Quiz Failed - Retake available</Badge>
                 }
               </CardContent>
             )}
@@ -186,7 +204,6 @@ const fetchVideos = (id: string) => fetchWithAuth(`/api/v1/courses/${id}/videos`
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [course, setCourse] = useState<CourseInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
