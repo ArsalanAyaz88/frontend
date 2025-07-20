@@ -340,34 +340,36 @@ const ManageVideos: React.FC = () => {
   };
 
   const handleSaveQuiz = async () => {
-    if (!currentQuiz) return;
+    if (!currentQuiz || !currentVideo?.id) {
+      toast.error("Cannot save quiz without a selected video.");
+      return;
+    }
+
+    const quizData = {
+      title: currentQuiz.title,
+      description: currentQuiz.description,
+      questions: currentQuiz.questions?.map(q => ({
+        text: q.text,
+        options: q.options.map(o => ({ text: o.text, is_correct: o.is_correct }))
+      }))
+    };
 
     try {
-      const endpoint = `/api/admin/videos/${currentQuiz.video_id}/quiz`;
-      const quizData = { 
-        title: currentQuiz.title,
-        description: currentQuiz.description,
-        questions: currentQuiz.questions?.map(q => ({
-          text: q.text,
-          options: q.options.map(o => ({ text: o.text, is_correct: o.is_correct }))
-        }))
-      };
-
-      const response = await fetchWithAuth(endpoint, {
-        method: 'POST', // Always POST for our upsert endpoint
+      // Always use the ID from the video being edited
+      const videoId = currentVideo.id;
+      const response = await fetchWithAuth(`/api/admin/videos/${videoId}/quiz`, {
+        method: 'POST', // The backend upserts, so POST is fine
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(quizData),
       });
 
-      const result = await handleApiResponse(response);
-      if (result) {
-        toast.success(`Quiz saved successfully`);
-        setIsQuizModalOpen(false);
-        setCurrentQuiz(null);
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'An unexpected error occurred while saving quiz data.');
-      console.error(error);
+      await handleApiResponse(response);
+      toast.success('Quiz saved successfully!');
+      setIsQuizModalOpen(false);
+      setCurrentQuiz(null);
+    } catch (error) {
+      toast.error('Failed to save the quiz. Please check the details and try again.');
+      console.error("Quiz save error:", error);
     }
   };
 
