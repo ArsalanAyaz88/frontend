@@ -163,7 +163,7 @@ const ManageVideos: React.FC = () => {
 
       try {
         // 1. Get signature from our backend
-        const signatureResponse = await fetchWithAuth('admin/create-upload-signature', {
+        const signatureResponse = await fetchWithAuth('/api/admin/create-upload-signature', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ folder: 'videos' })
@@ -210,7 +210,7 @@ const ManageVideos: React.FC = () => {
 
     // 3. Save video data to our database
     const method = currentVideo.id ? 'PUT' : 'POST';
-    const endpoint = currentVideo.id ? `admin/videos/${currentVideo.id}` : 'admin/videos';
+    const endpoint = currentVideo.id ? `/api/admin/videos/${currentVideo.id}` : '/api/admin/videos';
     
     const videoData = { ...currentVideo, url: videoUrl, course_id: selectedCourseId };
 
