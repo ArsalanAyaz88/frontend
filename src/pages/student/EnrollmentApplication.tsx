@@ -36,30 +36,45 @@ const EnrollmentApplication: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!certificate) {
-            toast({
-                title: 'Error',
-                description: 'Please upload your qualification certificate.',
-                variant: 'destructive',
-            });
+            toast({ title: 'Error', description: 'Please upload your qualification certificate.', variant: 'destructive' });
             return;
         }
 
         setIsSubmitting(true);
 
-        const applicationData = new FormData();
-        applicationData.append('course_id', courseId!);
-        applicationData.append('first_name', formData.first_name);
-        applicationData.append('last_name', formData.last_name);
-        applicationData.append('qualification', formData.qualification);
-        applicationData.append('ultrasound_experience', formData.ultrasound_experience);
-        applicationData.append('contact_number', formData.contact_number);
-        applicationData.append('qualification_certificate', certificate);
-
         try {
-            await axios.post('/api/enrollments/apply', applicationData, {
+            // Step 1: Get signature from our backend
+            const signatureResponse = await axios.post('/api/uploads/signature', {}, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            const { signature, timestamp, api_key, cloud_name } = signatureResponse.data;
+
+            // Step 2: Upload the file directly to Cloudinary using the signature
+            const cloudinaryFormData = new FormData();
+            cloudinaryFormData.append('file', certificate);
+            cloudinaryFormData.append('api_key', api_key);
+            cloudinaryFormData.append('timestamp', timestamp);
+            cloudinaryFormData.append('signature', signature);
+
+            const cloudinaryRes = await axios.post(
+                `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`,
+                cloudinaryFormData
+            );
+
+            const certificateUrl = cloudinaryRes.data.secure_url;
+
+            // Step 3: Submit application data with Cloudinary URL to your backend
+            const applicationPayload = {
+                ...formData,
+                course_id: courseId!,
+                qualification_certificate_url: certificateUrl,
+            };
+
+            await axios.post('/api/enrollments/apply', applicationPayload, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
                 },
             });
 
@@ -71,9 +86,13 @@ const EnrollmentApplication: React.FC = () => {
             navigate(`/student/explore-courses/${courseId}`);
         } catch (error) {
             console.error('Application submission error:', error);
+            const errorMessage = axios.isAxiosError(error) && error.response?.data?.detail 
+                ? error.response.data.detail
+                : 'Failed to submit application. Please try again.';
+            
             toast({
                 title: 'Error',
-                description: 'Failed to submit application. Please try again.',
+                description: errorMessage,
                 variant: 'destructive',
             });
         } finally {
