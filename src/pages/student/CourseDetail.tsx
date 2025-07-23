@@ -93,7 +93,14 @@ const CourseDetail: FC = () => {
 
         setCourse(courseData);
         setIsEnrolled(enrollmentData.is_enrolled);
-        setApplicationStatus(applicationData.status);
+        // Defensively set the application status.
+        // If the status is not one of the expected values, default to 'not_applied'.
+        const validStatuses = ['pending', 'approved', 'rejected'];
+        if (applicationData && validStatuses.includes(applicationData.status)) {
+          setApplicationStatus(applicationData.status as 'pending' | 'approved' | 'rejected');
+        } else {
+          setApplicationStatus('not_applied');
+        }
 
       } catch (err) {
         console.error("Failed to fetch course page data:", err);
