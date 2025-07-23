@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import Quiz from '@/components/Quiz';
+import EducationForm from './EducationForm';
 
 // --- TYPES ---
 interface CourseInfo {
@@ -146,7 +147,7 @@ const DynamicTabContent: FC<TabContentProps> = ({ courseId, fetcher, dataKey }) 
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-4">
-                  {!video.is_accessible && <Lock className="h-6 w-6 text-muted-foreground" />}
+                  {!video.is_accessible && <Lock className="h-6 w-6 mr-3 text-muted-foreground" />}
                   <div>
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center">
@@ -238,6 +239,35 @@ const CourseDetail: FC = () => {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasApplied, setHasApplied] = useState(false);
+  const [checkingApplication, setCheckingApplication] = useState(true);
+
+  // Check if user has already applied for this course (on mount)
+  useEffect(() => {
+    if (!courseId) return;
+    const checkApplication = async () => {
+      setCheckingApplication(true);
+      try {
+        const res = await fetch(`/api/apply/${courseId}`, { method: 'GET', credentials: 'include' });
+        if (res.ok) {
+          // User has already applied (API returns application)
+          setHasApplied(true);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 400 && (data.detail || '').includes('already applied')) {
+            setHasApplied(true);
+          } else {
+            setHasApplied(false);
+          }
+        }
+      } catch {
+        setHasApplied(false);
+      } finally {
+        setCheckingApplication(false);
+      }
+    };
+    checkApplication();
+  }, [courseId]);
 
   useEffect(() => {
     if (!courseId) return;
@@ -292,6 +322,15 @@ const CourseDetail: FC = () => {
   return (
     <DashboardLayout userType="student">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Education Form Section */}
+        {!isEnrolled && !hasApplied && !checkingApplication && (
+          <EducationForm courseId={courseId!} onSuccess={() => setHasApplied(true)} />
+        )}
+        {!isEnrolled && hasApplied && (
+          <div className="mb-6 p-4 border rounded-lg bg-green-50 text-green-800 font-semibold">
+            Your application has been submitted and is pending approval.
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <Card className="mb-8 overflow-hidden">
