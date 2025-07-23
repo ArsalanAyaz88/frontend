@@ -2,6 +2,7 @@ import { useEffect, useState, FC } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Button } from '../../components/ui/button';
 import { Loader2, Check } from 'lucide-react';
 import { fetchWithAuth, handleApiResponse } from '@/lib/api';
@@ -13,6 +14,8 @@ interface CourseInfo {
   description: string;
   price: number;
   outcomes: string[] | string;
+  curriculum: string[] | string;
+  prerequisites: string[] | string;
 }
 
 interface EnrollmentStatus {
@@ -140,23 +143,44 @@ const CourseDetail: FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left Column */}
-          <div className="lg:col-span-2 space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-4xl font-bold tracking-tight">{course.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg text-muted-foreground">{course.description}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>What You'll Learn</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ContentRenderer content={course.outcomes} />
-              </CardContent>
-            </Card>
+          <div className="lg:col-span-2">
+            <h1 className="text-4xl font-bold tracking-tight mb-4">{course.title}</h1>
+            <Tabs defaultValue="description" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="description">Description</TabsTrigger>
+                <TabsTrigger value="outcomes">What You'll Learn</TabsTrigger>
+                <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+                <TabsTrigger value="prerequisites">Prerequisites</TabsTrigger>
+              </TabsList>
+              <TabsContent value="description" className="mt-4">
+                <Card>
+                  <CardContent className="p-6">
+                    <p className="text-lg text-muted-foreground">{course.description}</p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="outcomes" className="mt-4">
+                <Card>
+                  <CardContent>
+                    <ContentRenderer content={course.outcomes} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="curriculum" className="mt-4">
+                <Card>
+                  <CardContent>
+                    <ContentRenderer content={course.curriculum} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="prerequisites" className="mt-4">
+                <Card>
+                  <CardContent>
+                    <ContentRenderer content={course.prerequisites} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Right Column */}
