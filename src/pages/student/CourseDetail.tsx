@@ -4,10 +4,17 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Button } from '../../components/ui/button';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2, Check, PlayCircle } from 'lucide-react';
 import { fetchWithAuth, handleApiResponse } from '@/lib/api';
 
 // --- TYPE DEFINITIONS ---
+// --- TYPE DEFINITIONS ---
+interface VideoPreview {
+  title: string;
+  duration: number | null;
+  is_preview: boolean;
+}
+
 interface CourseInfo {
   id: string;
   title: string;
@@ -16,6 +23,7 @@ interface CourseInfo {
   outcomes: string[] | string;
   curriculum: string[] | string;
   prerequisites: string[] | string;
+  videos: VideoPreview[];
 }
 
 interface EnrollmentStatus {
@@ -146,11 +154,12 @@ const CourseDetail: FC = () => {
           <div className="lg:col-span-2">
             <h1 className="text-4xl font-bold tracking-tight mb-4">{course.title}</h1>
             <Tabs defaultValue="description" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="description">Description</TabsTrigger>
                 <TabsTrigger value="outcomes">What You'll Learn</TabsTrigger>
                 <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
                 <TabsTrigger value="prerequisites">Prerequisites</TabsTrigger>
+                <TabsTrigger value="videos">Videos</TabsTrigger>
               </TabsList>
               <TabsContent value="description" className="mt-4">
                 <Card>
@@ -177,6 +186,36 @@ const CourseDetail: FC = () => {
                 <Card>
                   <CardContent>
                     <ContentRenderer content={course.prerequisites} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="videos" className="mt-4">
+                <Card>
+                  <CardContent className="p-6">
+                    {course.videos && course.videos.length > 0 ? (
+                      <ul className="space-y-4">
+                        {course.videos.map((video, index) => (
+                          <li key={index} className="flex items-center justify-between p-3 rounded-md bg-gray-50 dark:bg-gray-800">
+                            <div className="flex items-center">
+                              <PlayCircle className="h-5 w-5 mr-3 text-gray-400" />
+                              <span className="font-medium">{video.title}</span>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              {video.is_preview && (
+                                <span className="text-xs font-semibold text-white bg-blue-500 px-2 py-1 rounded-full">
+                                  Preview
+                                </span>
+                              )}
+                              <span className="text-sm text-muted-foreground">
+                                {video.duration ? `${Math.floor(video.duration / 60)}:${String(Math.floor(video.duration % 60)).padStart(2, '0')}` : 'N/A'}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-muted-foreground">No video previews available for this course.</p>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
