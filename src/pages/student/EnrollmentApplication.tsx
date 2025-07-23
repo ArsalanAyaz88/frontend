@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import axios from 'axios';
+import { fetchWithAuth, UnauthorizedError } from '@/lib/api';
 
 const EnrollmentApplication: React.FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -43,39 +43,28 @@ const EnrollmentApplication: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            // Step 1: Get signature from our backend
-            const signatureResponse = await axios.post('/api/uploads/signature', {}, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            // Step 1: Upload the certificate to the backend
+            const uploadFormData = new FormData();
+            uploadFormData.append('file', certificate);
+
+            const uploadResponse = await fetchWithAuth('/api/enrollments/upload-certificate', {
+                method: 'POST',
+                body: uploadFormData,
             });
+            const uploadData = await uploadResponse.json();
+            const certificateUrl = uploadData.certificate_url;
 
-            const { signature, timestamp, api_key, cloud_name } = signatureResponse.data;
-
-            // Step 2: Upload the file directly to Cloudinary using the signature
-            const cloudinaryFormData = new FormData();
-            cloudinaryFormData.append('file', certificate);
-            cloudinaryFormData.append('api_key', api_key);
-            cloudinaryFormData.append('timestamp', timestamp);
-            cloudinaryFormData.append('signature', signature);
-
-            const cloudinaryRes = await axios.post(
-                `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`,
-                cloudinaryFormData
-            );
-
-            const certificateUrl = cloudinaryRes.data.secure_url;
-
-            // Step 3: Submit application data with Cloudinary URL to your backend
+            // Step 2: Submit the application with the returned URL
             const applicationPayload = {
                 ...formData,
                 course_id: courseId!,
                 qualification_certificate_url: certificateUrl,
             };
 
-            await axios.post('/api/enrollments/apply', applicationPayload, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
+            await fetchWithAuth('/api/enrollments/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(applicationPayload),
             });
 
             toast({
@@ -86,9 +75,21 @@ const EnrollmentApplication: React.FC = () => {
             navigate(`/student/explore-courses/${courseId}`);
         } catch (error) {
             console.error('Application submission error:', error);
-            const errorMessage = axios.isAxiosError(error) && error.response?.data?.detail 
-                ? error.response.data.detail
-                : 'Failed to submit application. Please try again.';
+            let errorMessage = 'Failed to submit application. Please try again.';
+            if (error instanceof UnauthorizedError) {
+                errorMessage = 'Session expired. Please log in again.';
+                navigate('/login');
+            } else if (error instanceof Error) {
+                // Attempt to parse a JSON error response if possible
+                try {
+                    const errJson = JSON.parse(error.message);
+                    if (errJson.detail) {
+                        errorMessage = errJson.detail;
+                    }
+                } catch (e) {
+                    // Not a JSON error, use the generic message
+                }
+            }
             
             toast({
                 title: 'Error',
