@@ -13,6 +13,7 @@ import StudentDashboard from "./pages/student/Dashboard";
 import StudentCourses from "./pages/student/Courses";
 import StudentCourseDetail from "./pages/student/CourseDetail";
 import MyCourseDetail from "./pages/student/MyCourseDetail";
+import EnrollmentApplication from "./pages/student/EnrollmentApplication";
 import StudentAssignments from "./pages/student/Assignments";
 import StudentAssignmentDetail from "./pages/student/AssignmentDetail";
 import StudentQuizzes from "./pages/student/Quizzes";
@@ -26,6 +27,7 @@ import AdminCourseDetail from './pages/admin/CourseDetail';
 import AdminNotifications from './pages/admin/Notifications';
 import AdminStudents from "./pages/admin/Students";
 import AdminEnrollments from "./pages/admin/Enrollments";
+import AdminApplications from "./pages/admin/Applications";
 
 import ManageAssignments from "./pages/admin/ManageAssignments";
 import ManageQuizzes from "./pages/admin/ManageQuizzes";
@@ -53,6 +55,7 @@ const App = () => (
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/student/courses" element={<StudentCourses />} />
           <Route path="/student/courses/:courseId" element={<StudentCourseDetail />} />
+          <Route path="/student/apply/:courseId" element={<EnrollmentApplication />} />
           <Route path="/student/my-courses/:courseId" element={<MyCourseDetail />} />
           <Route path="/student/assignments" element={<StudentAssignments />} />
           <Route path="/student/assignments/:courseId/:assignmentId" element={<StudentAssignmentDetail />} />
@@ -70,6 +73,7 @@ const App = () => (
           <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/students" element={<AdminStudents />} />
           <Route path="/admin/enrollments" element={<AdminEnrollments />} />
+          <Route path="/admin/applications" element={<AdminApplications />} />
           <Route path="/admin/manage-assignments" element={<ManageAssignments />} />
           <Route path="/admin/manage-quizzes" element={<ManageQuizzes />} />
           <Route path="/admin/manage-videos" element={<ManageVideos />} />

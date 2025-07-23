@@ -123,7 +123,7 @@ const CourseDetail: FC = () => {
       case 'approved':
         return <Button onClick={() => navigate(`/payment/${courseId}`)} className="w-full font-bold py-3 text-lg">Enroll Now</Button>;
       case 'not_applied':
-        return <Button onClick={() => navigate(`/enroll/${courseId}`)} className="w-full font-bold py-3 text-lg">Apply for Course</Button>;
+        return <Button onClick={() => navigate(`/student/apply/${courseId}`)} className="w-full font-bold py-3 text-lg">Apply for Course</Button>;
       case 'error':
         return <p className="font-semibold text-center p-3 bg-red-100 text-red-700 rounded-md">Could not load application status.</p>;
       default:

@@ -15,7 +15,8 @@ import {
   UserCheck,
   CheckCircle,
   Clock,
-  Bell
+  Bell,
+  ClipboardEdit
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +46,7 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
     { icon: Users, label: "Students", path: "/admin/students" },
     { icon: UserCheck, label: "Enrollments", path: "/admin/enrollments" },
+    { icon: ClipboardEdit, label: "Applications", path: "/admin/applications" },
     { icon: Bell, label: "Notifications", path: "/admin/notifications" },
     { icon: Clock, label: "Manage Assignments", path: "/admin/manage-assignments" },
     { icon: CheckCircle, label: "Manage Quizzes", path: "/admin/manage-quizzes" },
