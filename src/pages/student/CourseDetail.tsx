@@ -77,11 +77,12 @@ const CourseDetail: FC = () => {
         const enrollmentPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`).then((res: Response) => handleApiResponse<EnrollmentStatus>(res)).catch(() => ({ is_enrolled: false }));
         const applicationStatusPromise = fetchWithAuth(`/api/enrollments/application-status/${courseId}`)
           .then((res: Response) => handleApiResponse<ApplicationStatusResponse>(res))
-          .catch((err: Error) => {
-            if (err instanceof Error && err.message.includes('404')) {
-              return { status: 'not_applied' as const };
-            }
-            throw err;
+          .catch(() => {
+            // If the request fails for any reason (e.g., 404, 500, network error),
+            // we'll treat it as 'not_applied' for the purpose of the button,
+            // but the user will see an error if the whole page fails to load.
+            // A more robust solution might set a specific error state here.
+            return { status: 'not_applied' as const };
           });
 
         const [courseData, enrollmentData, applicationData] = await Promise.all([
