@@ -176,23 +176,26 @@ const Courses = () => {
             )}
           </TabsContent>
           <TabsContent value="explore">
-             {exploreCourses.length > 0 ? (
-              <div className="grid gap-6 mt-6 md:grid-cols-2 lg:grid-cols-3">
-                {exploreCourses.map((course) => (
-                  <Link to={`/student/courses/${course.id}`} key={course.id} className="block hover:no-underline">
-                    <Card className="overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-xl h-full flex flex-col">
-                      <img src={course.thumbnail_url || `https://placehold.co/600x400/3b82f6/FFFFFF?text=Explore`} alt={course.title} className="w-full h-48 object-cover" />
-                      <div className="p-4 flex flex-col flex-grow">
-                        <h3 className="text-lg font-semibold mb-2 h-14">{course.title}</h3>
-                        <div className="flex justify-between items-center mt-auto">
-                          <Badge variant="outline">Explore</Badge>
-                          <span className="text-xl font-bold text-primary">{course.price > 0 ? `$${course.price}` : 'Free'}</span>
-                        </div>
-                      </div>
-                    </Card>
-                  </Link>
-                ))}
+  {exploreCourses.length > 0 ? (
+    <div className="grid gap-6 mt-6 md:grid-cols-2 lg:grid-cols-3">
+      {exploreCourses.map((course) => (
+        <Link to={`/student/courses/${course.id}`} key={course.id} className="block hover:no-underline">
+          <Card className="overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-xl h-full flex flex-col">
+            <img src={course.thumbnail_url || `https://placehold.co/600x400/3b82f6/FFFFFF?text=Explore`} alt={course.title} className="w-full h-48 object-cover" />
+            <div className="p-4 flex flex-col flex-grow">
+              <h3 className="text-lg font-semibold mb-2 h-14">{course.title}</h3>
+              <div className="flex justify-between items-center mt-auto">
+                <Badge variant="outline">Explore</Badge>
+                <span className="text-xl font-bold text-primary">{course.price > 0 ? `$${course.price}` : 'Free'}</span>
               </div>
+              <Button className="mt-4" asChild>
+                <Link to={`/student/courses/${course.id}?apply=1`}>Apply</Link>
+              </Button>
+            </div>
+          </Card>
+        </Link>
+      ))}
+    </div>
             ) : (
               <div className="text-center py-12">
                 <h3 className="text-xl font-semibold">No Courses to Explore</h3>

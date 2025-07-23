@@ -229,21 +229,18 @@ const fetchDescription = (id: string) => fetchWithAuth(`/api/courses/courses/${i
 const fetchOutcomes = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/outcomes`);
 const fetchPrerequisites = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/prerequisites`);
 const fetchCurriculum = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/curriculum`);
-const fetchVideos = (id: string) => fetchWithAuth(`/api/v1/courses/${id}/videos`);
+const fetchVideos = (id: string) => fetchWithAuth(`/api/courses/courses/${id}/videos`);
 
-// --- MAIN COMPONENT ---
-const CourseDetail = () => {
+const CourseDetail: FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const [course, setCourse] = useState<CourseInfo | null>(null);
+  const [isEnrolled, setIsEnrolled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isEnrolled, setIsEnrolled] = useState(false);
-
 
   useEffect(() => {
     if (!courseId) return;
-
     const fetchCourseData = async () => {
       setIsLoading(true);
       try {
