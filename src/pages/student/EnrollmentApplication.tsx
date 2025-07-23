@@ -72,7 +72,7 @@ const EnrollmentApplication: React.FC = () => {
                 description: 'Your application has been submitted successfully. You will be notified once it is reviewed.',
             });
 
-            navigate(`/student/explore-courses/${courseId}`);
+            navigate(`/student/courses/${courseId}`);
         } catch (error) {
             console.error('Application submission error:', error);
             let errorMessage = 'Failed to submit application. Please try again.';
