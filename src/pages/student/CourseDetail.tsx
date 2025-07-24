@@ -129,7 +129,7 @@ const CourseDetail: FC = () => {
       case 'rejected':
         return <p className="font-semibold text-center p-3 bg-red-100 text-red-700 rounded-md">Your application was not approved.</p>;
       case 'approved':
-        return <Button onClick={() => navigate(`/payment/${courseId}`)} className="w-full font-bold py-3 text-lg">Enroll Now</Button>;
+                return <Button onClick={() => navigate(`/student/apply/${courseId}`)} className="w-full font-bold py-3 text-lg">Enroll Now</Button>;
       case 'not_applied':
         return <Button onClick={() => navigate(`/student/apply/${courseId}`)} className="w-full font-bold py-3 text-lg">Apply for Course</Button>;
       case 'error':
