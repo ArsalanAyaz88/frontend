@@ -48,19 +48,40 @@ const Login = () => {
       data = await response.json();
       console.log('Login Response:', data);
 
-      // Store user session data, including the access token from the response
+      // Store user session data
       if (userType === 'admin') {
-        // For admin, only set the admin-specific token
         localStorage.setItem('admin_access_token', data.access_token);
       } else {
-        // For students, set the general user session
-        const userSession = {
-          email: email,
-          role: 'student',
-          full_name: data.full_name || email.split('@')[0],
-          access_token: data.access_token,
-        };
-        localStorage.setItem('user', JSON.stringify(userSession));
+        // For students, first get the access token, then fetch the profile
+        const { access_token } = data;
+
+        // Fetch user profile to get the full name
+        const profileResponse = await fetch('https://student-portal-lms-seven.vercel.app/api/profile/profile', {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+          },
+        });
+
+        if (!profileResponse.ok) {
+          // If profile fetch fails, fallback to email, but log the issue
+          console.error('Failed to fetch profile after login.');
+          const userSession = {
+            email: email,
+            role: 'student',
+            full_name: email.split('@')[0], // Fallback name
+            access_token: access_token,
+          };
+          localStorage.setItem('user', JSON.stringify(userSession));
+        } else {
+          const profileData = await profileResponse.json();
+          const userSession = {
+            email: email,
+            role: 'student',
+            full_name: profileData.full_name || email.split('@')[0],
+            access_token: access_token,
+          };
+          localStorage.setItem('user', JSON.stringify(userSession));
+        }
       }
 
       toast({

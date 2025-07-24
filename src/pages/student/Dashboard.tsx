@@ -51,17 +51,21 @@ const Dashboard = () => {
       setIsLoading(true);
       try {
         // Fetch user name if not available
-        if (userName === 'Student') {
+        // Always fetch the latest profile to ensure the name is correct
+        try {
           const response = await fetchWithAuth('/api/profile/profile');
           if (response.ok) {
             const data = await response.json();
             if (data.full_name && data.full_name.toLowerCase() !== 'string') {
               setUserName(data.full_name);
+              // Also update localStorage for persistence
               const userSession = JSON.parse(localStorage.getItem('user') || '{}');
               userSession.full_name = data.full_name;
               localStorage.setItem('user', JSON.stringify(userSession));
             }
           }
+        } catch (profileError) {
+            console.warn('Could not fetch user profile name, using existing one.');
         }
 
         // Fetch all analytics
