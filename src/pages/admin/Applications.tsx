@@ -11,7 +11,7 @@ import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 interface Application {
     id: string;
-    user: { first_name: string; last_name: string; email: string };
+    user: { name: string; email: string };
     course: { title: string };
     status: 'pending' | 'approved' | 'rejected';
     qualification: string;
@@ -30,7 +30,7 @@ const AdminApplications: FC = () => {
     const fetchApplications = async () => {
         setIsLoading(true);
         try {
-            const data = await fetchWithAuth('/api/enrollments/admin/applications').then(res => handleApiResponse(res)) as Application[];
+            const data = await fetchWithAuth('/api/admin/enrollment-applications').then(res => handleApiResponse(res)) as Application[];
             setApplications(data);
         } catch (error) {
             console.error('Failed to fetch applications', error);
@@ -46,8 +46,8 @@ const AdminApplications: FC = () => {
 
     const handleUpdateStatus = async (applicationId: string, status: 'approved' | 'rejected', reason?: string) => {
         try {
-            await fetchWithAuth(`/api/enrollments/admin/applications/${applicationId}`, {
-                method: 'PATCH',
+            await fetchWithAuth(`/api/admin/enrollment-applications/${applicationId}/status`, {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status, rejection_reason: reason }),
             });
@@ -83,7 +83,7 @@ const AdminApplications: FC = () => {
                             <TableBody>
                                 {applications.map((app) => (
                                     <TableRow key={app.id}>
-                                        <TableCell>{app.user.first_name} {app.user.last_name}</TableCell>
+                                        <TableCell>{app.user.name}</TableCell>
                                         <TableCell>{app.course.title}</TableCell>
                                         <TableCell>{app.status}</TableCell>
                                         <TableCell className="space-x-2">
@@ -123,7 +123,7 @@ const AdminApplications: FC = () => {
                             <DialogTitle>Application Details</DialogTitle>
                         </DialogHeader>
                         <div>
-                            <p><strong>Student:</strong> {selectedApplication.user.first_name} {selectedApplication.user.last_name} ({selectedApplication.user.email})</p>
+                            <p><strong>Student:</strong> {selectedApplication.user.name} ({selectedApplication.user.email})</p>
                             <p><strong>Course:</strong> {selectedApplication.course.title}</p>
                             <p><strong>Contact:</strong> {selectedApplication.contact_number}</p>
                             <p><strong>Qualification:</strong> {selectedApplication.qualification}</p>

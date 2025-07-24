@@ -25,14 +25,15 @@ interface PurchaseInfo {
 }
 
 interface StatusResponse {
-  status: 'pending' | 'enrolled' | 'rejected' | 'not_enrolled' | 'approved';
+  status: 'pending' | 'enrolled' | 'rejected' | 'not_applied' | 'approved';
+  application_id?: string;
 }
 
 interface UploadResponse {
   file_url: string;
 }
 
-const Payment = () => {
+const PaymentPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
 
@@ -45,6 +46,7 @@ const Payment = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [applicationId, setApplicationId] = useState<string | null>(null);
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -66,7 +68,7 @@ const Payment = () => {
         const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
         const statusData = await handleApiResponse<StatusResponse>(statusRes);
         setEnrollmentStatus(statusData.status);
-
+        setApplicationId(statusData.application_id || null);
       } catch (err) {
         if (err instanceof UnauthorizedError) {
           toast.error('Session expired. Please log in again.');
@@ -101,11 +103,14 @@ const Payment = () => {
   };
 
   const handleSubmitProof = async () => {
-    if (!uploadedFile || !selectedBankAccountId || !transactionId) {
-      toast.error('Please fill all fields and select a payment proof file.');
+    if (!uploadedFile || !transactionId) {
+      toast.error('Please provide the transaction ID and select a payment proof file.');
       return;
     }
-    if (!courseId) return;
+    if (!courseId || !applicationId) {
+      toast.error('Application details not found. Cannot submit payment.');
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -122,10 +127,10 @@ const Payment = () => {
 
       // Step 2: Submit the proof details with the URL
       const submissionPayload = {
-        course_id: courseId,
-        bank_account_id: selectedBankAccountId,
+        application_id: applicationId,
+        proof_url: proofUrl,
         transaction_id: transactionId,
-        file_url: proofUrl,
+        bank_account_id: selectedBankAccountId,
       };
 
       await fetchWithAuth(`/api/enrollments/submit-payment-proof`, {
@@ -157,7 +162,6 @@ const Payment = () => {
         statusColor = 'bg-yellow-100 border-yellow-400 text-yellow-700';
         break;
       case 'enrolled':
-      case 'approved':
         statusIcon = <CheckCircle className="h-5 w-5" />;
         statusText = 'Payment successful! You are now enrolled in the course.';
         statusColor = 'bg-green-100 border-green-400 text-green-700';
@@ -179,77 +183,98 @@ const Payment = () => {
     );
   };
 
-  const renderPaymentForm = () => {
-    if (!purchaseInfo) return null;
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Complete Your Enrollment</CardTitle>
-          <CardDescription>To enroll, please transfer {purchaseInfo.course_price} PKR to one of the accounts below and upload your proof of payment.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <h3 className="font-semibold mb-2">Bank Accounts</h3>
-            <ul className="list-disc list-inside space-y-2 text-sm">
-              {purchaseInfo.bank_accounts.map(acc => (
-                <li key={acc.id}><strong>{acc.bank_name}:</strong> {acc.account_number} (Title: {acc.account_title}, IBAN: {acc.iban})</li>
-              ))}
-            </ul>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="bank-account">Paid To (Bank Account)</Label>
-            <Select onValueChange={setSelectedBankAccountId} value={selectedBankAccountId}>
-              <SelectTrigger id="bank-account">
-                <SelectValue placeholder="Select the bank account you paid to" />
-              </SelectTrigger>
-              <SelectContent>
-                {purchaseInfo.bank_accounts.map(acc => (
-                  <SelectItem key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="transaction-id">Transaction ID / Reference No.</Label>
-            <Input id="transaction-id" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="e.g., FT23456789" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="payment-proof">Upload Payment Proof</Label>
-            <Input id="payment-proof" type="file" onChange={handleFileChange} accept=".png,.jpg,.jpeg,.pdf" />
-            <p className="text-xs text-muted-foreground">Accepted formats: PNG, JPG, PDF. Max size: 5MB.</p>
-          </div>
-          <Button onClick={handleSubmitProof} disabled={isSubmitting || !uploadedFile || !transactionId || !selectedBankAccountId} className="w-full">
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Submit Payment Proof
+  const renderContent = () => {
+    if (loading) {
+      return <div className="flex justify-center items-center p-10"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
+    if (error) {
+      return <div className="text-red-500 p-4 flex items-center"><AlertCircle className="mr-2"/> Error: {error}</div>;
+    }
+
+    if (enrollmentStatus === 'not_applied') {
+      return (
+        <div className="text-center p-6 bg-gray-50 rounded-lg">
+          <h3 className="text-lg font-semibold">Apply for Enrollment First</h3>
+          <p className="text-muted-foreground mt-2">Your educational documents must be approved before you can pay.</p>
+          <Button asChild className="mt-4">
+            <Link to={`/student/enroll/${courseId}`}>Go to Application Form</Link>
           </Button>
-        </CardContent>
-      </Card>
-    );
+        </div>
+      );
+    }
+
+    if (enrollmentStatus && ['pending', 'enrolled', 'rejected'].includes(enrollmentStatus)) {
+      return renderStatus();
+    }
+
+    if (enrollmentStatus === 'approved') {
+      if (!purchaseInfo) {
+        return <div className="flex justify-center items-center p-10"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+      }
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Complete Your Enrollment</CardTitle>
+            <CardDescription>To enroll, please transfer {purchaseInfo.course_price} PKR to one of the accounts below and upload your proof of payment.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <h3 className="font-semibold mb-2">Bank Accounts</h3>
+              <ul className="list-disc list-inside space-y-2 text-sm">
+                {purchaseInfo.bank_accounts.map(acc => (
+                  <li key={acc.id}><strong>{acc.bank_name}:</strong> {acc.account_number} (Title: {acc.account_title}, IBAN: {acc.iban})</li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bank-account">Paid To (Bank Account)</Label>
+              <Select onValueChange={setSelectedBankAccountId} value={selectedBankAccountId}>
+                <SelectTrigger id="bank-account">
+                  <SelectValue placeholder="Select the bank account you paid to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {purchaseInfo.bank_accounts.map(acc => (
+                    <SelectItem key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="transaction-id">Transaction ID / Reference No.</Label>
+              <Input id="transaction-id" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="e.g., FT23456789" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="payment-proof">Upload Payment Proof</Label>
+              <Input id="payment-proof" type="file" onChange={handleFileChange} accept=".png,.jpg,.jpeg,.pdf" />
+              <p className="text-xs text-muted-foreground">Accepted formats: PNG, JPG, PDF. Max size: 5MB.</p>
+            </div>
+            <Button onClick={handleSubmitProof} disabled={isSubmitting || !uploadedFile || !transactionId || !selectedBankAccountId} className="w-full">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Submit Payment Proof
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return null;
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  if (error) return <div className="flex justify-center items-center h-screen text-red-500"><AlertCircle className="mr-2" /> {error}</div>;
+
 
   return (
     <DashboardLayout userType="student">
-      <div className="p-6">
-        <div className="space-y-4">
-          {enrollmentStatus && renderStatus()}
-          {enrollmentStatus !== 'enrolled' && enrollmentStatus !== 'approved' && enrollmentStatus !== 'pending' && renderPaymentForm()}
-          {(enrollmentStatus === 'enrolled' || enrollmentStatus === 'approved') && (
-            <div className="text-center p-8 bg-green-50 rounded-lg">
-              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold">Enrollment Confirmed</h2>
-              <p className="text-muted-foreground">You can now access all materials for this course.</p>
-              <Link to={`/student/courses/${courseId}`}>
-                <Button className="mt-4">Go to Course</Button>
-              </Link>
-            </div>
-          )}
+      <div className="p-4 sm:p-6 md:p-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight">Course Payment</h1>
+          <p className="text-muted-foreground mt-1">
+            Complete your payment to get enrolled in the course.
+          </p>
         </div>
+        {renderContent()}
       </div>
     </DashboardLayout>
   );
 };
 
-export default Payment;            
+export default PaymentPage;            
