@@ -1,68 +1,122 @@
 import { useEffect, useState, FC } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, PlayCircle, CheckCircle, Lock } from 'lucide-react';
-import { fetchWithAuth, handleApiResponse } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
+import { Loader2, PlayCircle, Lock, CheckCircle } from 'lucide-react';
 
-// --- TYPE DEFINITIONS ---
-interface Video {
-  id: string;
+// --- INTERFACES ---
+interface Course {
+  id: number;
   title: string;
   description: string;
-  url: string;
-  duration: number;
-  order: number;
-  is_preview: boolean;
-  watched: boolean;
-  quiz_status: 'not_taken' | 'passed' | 'failed';
-  is_accessible: boolean;
 }
 
-
+interface Video {
+  id: number;
+  title: string;
+  video_url: string;
+  description: string;
+  is_accessible: boolean;
+  watched: boolean;
+}
 
 // --- MAIN COMPONENT ---
 const MyCourseDetail: FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
-  // --- State ---
+  // --- STATE ---
+  const [course, setCourse] = useState<Course | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
 
+  // --- EFFECTS ---
   useEffect(() => {
     if (!courseId) return;
 
-    const fetchCourseVideos = async () => {
-      setIsLoading(true);
+    const fetchCourseDetails = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError("Authentication token not found.");
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const videoData = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-progress`).then(res => handleApiResponse<Video[]>(res));
-        setVideos(videoData);
-        if (videoData.length > 0) {
-          const firstAccessibleVideo = videoData.find((v: Video) => v.is_accessible);
-          setSelectedVideo(firstAccessibleVideo || videoData[0]);
+        const response = await fetch(`/api/courses/${courseId}/videos`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCourse(data.course);
+          setVideos(data.videos);
+          const firstAccessibleVideo = data.videos.find((v: Video) => v.is_accessible);
+          if (firstAccessibleVideo) {
+            setSelectedVideo(firstAccessibleVideo);
+          } else if (data.videos.length > 0) {
+            setSelectedVideo(data.videos[0]);
+          }
+        } else {
+          setError('Failed to fetch course details.');
         }
       } catch (err) {
-        console.error('Failed to fetch course videos:', err);
-        setError('Failed to load course content.');
+        setError('An error occurred while fetching course details.');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchCourseVideos();
+    fetchCourseDetails();
   }, [courseId]);
 
+  useEffect(() => {
+    if (!courseId) return;
+
+    const fetchEnrollmentStatus = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        setStatusLoading(true);
+        const response = await fetch(`/api/enrollments/${courseId}/status`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setEnrollmentStatus(data.status);
+        } else if (response.status === 404) {
+           setEnrollmentStatus('NOT_APPLIED');
+        } else {
+           console.error("Failed to fetch enrollment status:", response);
+           setEnrollmentStatus('ERROR');
+        }
+      } catch (error) {
+        console.error('Error fetching enrollment status:', error);
+        setEnrollmentStatus('ERROR');
+      } finally {
+        setStatusLoading(false);
+      }
+    };
+
+    fetchEnrollmentStatus();
+  }, [courseId]);
+
+  // --- HANDLERS ---
   const handleVideoSelect = (video: Video) => {
     if (!video.is_accessible) {
       toast({
-        title: 'Video Locked',
-        description: 'You must complete the previous video and pass its quiz to unlock this one.',
-        variant: 'destructive',
+        title: "Access Denied",
+        description: "You must enroll in the course to watch this video.",
+        variant: "destructive",
       });
       return;
     }
@@ -71,94 +125,116 @@ const MyCourseDetail: FC = () => {
 
   const handleMarkAsComplete = async () => {
     if (!selectedVideo) return;
-
-    try {
-      await fetchWithAuth(`/api/courses/videos/${selectedVideo.id}/complete`, { method: 'POST' });
-      setVideos(prevVideos =>
-        prevVideos.map(v => (v.id === selectedVideo.id ? { ...v, watched: true } : v))
-      );
-      toast({ title: 'Progress Saved', description: 'Video marked as complete.' });
-
-      // Refresh video accessibility
-      const videoData = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-progress`).then(res => handleApiResponse<Video[]>(res));
-      setVideos(videoData);
-
-    } catch (error) {
-      console.error('Failed to mark video as complete:', error);
-      toast({ title: 'Error', description: 'Could not save your progress.', variant: 'destructive' });
-    }
+    toast({ title: "Success", description: `${selectedVideo.title} marked as complete.` });
+  };
+  
+  const apply_for_enrollment = () => {
+      navigate(`/student/enrollment-application/${courseId}`);
   };
 
   // --- RENDER LOGIC ---
+  const renderEnrollmentButton = () => {
+    if (statusLoading) {
+      return <div className="text-center"><Loader2 className="h-6 w-6 animate-spin inline-block" /></div>;
+    }
+
+    switch (enrollmentStatus) {
+      case 'APPROVED':
+        return (
+          <Button onClick={() => navigate(`/student/payment/${courseId}`)} className="w-full bg-green-600 hover:bg-green-700">
+            Enroll Now (Proceed to Payment)
+          </Button>
+        );
+      case 'PENDING':
+        return <p className="text-center font-semibold text-yellow-600">Your application is pending review.</p>;
+      case 'REJECTED':
+        return <p className="text-center font-semibold text-red-600">Your application has been rejected.</p>;
+      case 'NOT_APPLIED':
+      default:
+        return (
+          <Button onClick={apply_for_enrollment} className="w-full">
+            Apply for Enrollment
+          </Button>
+        );
+    }
+  };
+
   if (isLoading) {
-    return <DashboardLayout userType="student"><div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin" /></div></DashboardLayout>;
+    return <DashboardLayout userType="student"><div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin" /></div></DashboardLayout>;
   }
 
   if (error) {
-    return <DashboardLayout userType="student"><div className="text-center text-red-500 p-8">{error}</div></DashboardLayout>;
+    return <DashboardLayout userType="student"><div className="text-red-500 text-center p-8">{error}</div></DashboardLayout>;
   }
 
   return (
     <DashboardLayout userType="student">
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container mx-auto p-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Video Player and Details */}
+          
           <div className="lg:col-span-2">
-            {selectedVideo ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{selectedVideo.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="aspect-video bg-black rounded-lg mb-4">
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                {selectedVideo ? (
+                  <div className="aspect-video">
                     <iframe
+                      key={selectedVideo.id}
                       className="w-full h-full"
-                      src={selectedVideo.url}
+                      src={selectedVideo.video_url.includes('youtube.com') ? selectedVideo.video_url.replace('watch?v=', 'embed/') : selectedVideo.video_url}
                       title={selectedVideo.title}
-                      frameBorder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     ></iframe>
                   </div>
-                  <p className="text-muted-foreground mb-4">{selectedVideo.description}</p>
-                  <Button onClick={handleMarkAsComplete} disabled={selectedVideo.watched}>
-                    {selectedVideo.watched ? <CheckCircle className="mr-2" /> : null}
-                    {selectedVideo.watched ? 'Completed' : 'Mark as Complete'}
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <p>Select a video to start learning.</p>
-            )}
+                ) : (
+                  <div className="aspect-video bg-muted flex items-center justify-center">
+                    <p>Select a video to begin.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <div className="mt-6">
+                <h2 className="text-2xl font-bold mb-2">{selectedVideo?.title || course?.title}</h2>
+                <p className="text-muted-foreground">{selectedVideo?.description || 'Select a video to see its description.'}</p>
+                {selectedVideo && (
+                    <Button onClick={handleMarkAsComplete} disabled={selectedVideo.watched} className="mt-4">
+                        {selectedVideo.watched ? <CheckCircle className="mr-2 h-4 w-4" /> : null}
+                        {selectedVideo.watched ? 'Completed' : 'Mark as Complete'}
+                    </Button>
+                )}
+            </div>
           </div>
 
-          {/* Video Playlist */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Course Content</CardTitle>
+                <CardTitle>{course?.title}</CardTitle>
+                <p className="text-muted-foreground pt-1">{course?.description}</p>
               </CardHeader>
               <CardContent>
+                <div className="mb-6">
+                    {renderEnrollmentButton()}
+                </div>
+                <h3 className="font-semibold mb-3">Course Content</h3>
                 <ul className="space-y-2">
-                  {videos.map(video => (
-                    <li key={video.id}>
-                      <Button
-                        variant={selectedVideo?.id === video.id ? 'secondary' : 'ghost'}
-                        className="w-full justify-start h-auto py-2 px-3 text-left"
-                        onClick={() => handleVideoSelect(video)}
-                        disabled={!video.is_accessible}
-                      >
-                        {video.is_accessible ? (
-                          video.watched ? (
-                            <CheckCircle className="h-5 w-5 mr-3 text-green-500 flex-shrink-0" />
-                          ) : (
-                            <PlayCircle className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
-                          )
+                  {videos.map((video) => (
+                    <li
+                      key={video.id}
+                      onClick={() => handleVideoSelect(video)}
+                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedVideo?.id === video.id ? 'bg-muted' : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      {video.is_accessible ? (
+                        video.watched ? (
+                          <CheckCircle className="h-5 w-5 mr-3 text-green-500 flex-shrink-0" />
                         ) : (
-                          <Lock className="h-5 w-5 mr-3 text-red-500 flex-shrink-0" />
-                        )}
-                        <span className='flex-grow'>{video.title}</span>
-                      </Button>
+                          <PlayCircle className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
+                        )
+                      ) : (
+                        <Lock className="h-5 w-5 mr-3 text-red-500 flex-shrink-0" />
+                      )}
+                      <span className="flex-grow">{video.title}</span>
                     </li>
                   ))}
                 </ul>
