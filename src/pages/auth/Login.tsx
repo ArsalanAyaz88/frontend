@@ -12,7 +12,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [userType, setUserType] = useState<"student" | "admin">("student");
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -26,9 +26,7 @@ const Login = () => {
       body.append('username', email);
       body.append('password', password);
 
-      const url = userType === "admin"
-        ? 'https://student-portal-lms-seven.vercel.app/api/auth/admin-login'
-        : 'https://student-portal-lms-seven.vercel.app/api/auth/token';
+      const url = 'https://student-portal-lms-seven.vercel.app/api/auth/token';
 
       response = await fetch(url, {
         method: 'POST',
@@ -48,14 +46,13 @@ const Login = () => {
       data = await response.json();
       console.log('Login Response:', data);
 
-      // Store user session data
-      if (userType === 'admin') {
-        localStorage.setItem('admin_access_token', data.access_token);
-      } else {
-        // For students, first get the access token, then fetch the profile
-        const { access_token } = data;
+      // Store user session data based on role
+      const { access_token, role } = data;
 
-        // Fetch user profile to get the full name
+      if (role === 'admin') {
+        localStorage.setItem('admin_access_token', access_token);
+      } else {
+        // For students, fetch profile to get full name
         const profileResponse = await fetch('https://student-portal-lms-seven.vercel.app/api/profile/profile', {
           headers: {
             'Authorization': `Bearer ${access_token}`,
@@ -63,7 +60,6 @@ const Login = () => {
         });
 
         if (!profileResponse.ok) {
-          // If profile fetch fails, fallback to email, but log the issue
           console.error('Failed to fetch profile after login.');
           const userSession = {
             email: email,
@@ -94,8 +90,8 @@ const Login = () => {
         localStorage.removeItem('enrollCourseId');
         navigate(`/student/payment?course_id=${enrollCourseId}`);
       } else {
-        // Redirect based on user type
-        if (userType === 'admin') {
+        // Role-based redirection
+        if (data.role === 'admin') {
           navigate("/admin/dashboard");
         } else {
           navigate("/student/dashboard");
@@ -144,26 +140,7 @@ const Login = () => {
 
         <Card className="glass-card p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex space-x-4">
-                <Button
-                  type="button"
-                  variant={userType === "student" ? "default" : "outline"}
-                  onClick={() => setUserType("student")}
-                  className="flex-1"
-                >
-                  Student
-                </Button>
-                <Button
-                  type="button"
-                  variant={userType === "admin" ? "default" : "outline"}
-                  onClick={() => setUserType("admin")}
-                  className="flex-1"
-                >
-                  Admin
-                </Button>
-              </div>
-            </div>
+
 
             <div className="space-y-4">
               <div>
