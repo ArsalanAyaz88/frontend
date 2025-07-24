@@ -113,7 +113,7 @@ const MyCourseDetail: FC = () => {
                   <div className="aspect-video bg-black rounded-lg mb-4">
                     <iframe
                       className="w-full h-full"
-                      src={selectedVideo.url.replace('watch?v=', 'embed/')}
+                      src={selectedVideo.url}
                       title={selectedVideo.title}
                       frameBorder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
