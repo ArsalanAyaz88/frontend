@@ -37,7 +37,7 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
     { icon: BookOpen, label: "Courses", path: "/student/courses" },
     { icon: FileText, label: "Assignments", path: "/student/assignments" },
     { icon: HelpCircle, label: "Quizzes", path: "/student/quizzes" },
-    { icon: CreditCard, label: "Payment", path: "/student/payment" },
+    { icon: CreditCard, label: "My Enrollments", path: "/student/enrollments" },
     { icon: User, label: "Profile", path: "/student/profile" },
   ];
 

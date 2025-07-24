@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle, Clock, XCircle, AlertCircle, BookOpen } from 'lucide-react';
+import { Loader2, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 
@@ -18,18 +18,6 @@ interface PurchaseInfo {
     account_name: string;
     account_number: string;
   }[];
-}
-
-interface Enrollment {
-  id: number;
-  course_id: number;
-  course_title: string;
-  status: 'pending' | 'enrolled' | 'rejected' | 'not_enrolled' | 'approved';
-}
-
-interface Course {
-  id: number;
-  title: string;
 }
 
 interface StatusResponse {
@@ -47,7 +35,7 @@ const Payment = () => {
   // State
   const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,7 +48,7 @@ const Payment = () => {
       try {
         if (courseId) {
           // Fetch purchase info first, as it's required to render the form.
-                    const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
+          const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
           const purchaseData = await handleApiResponse<PurchaseInfo>(purchaseInfoRes);
           setPurchaseInfo(purchaseData);
 
@@ -84,46 +72,8 @@ const Payment = () => {
             setEnrollmentStatus(null);
           }
         } else {
-          const coursesRes = await fetchWithAuth(`/api/courses/my-courses`);
-          const coursesData = await handleApiResponse<Course[]>(coursesRes);
-
-          if (Array.isArray(coursesData) && coursesData.length > 0) {
-            const enrollmentsWithStatus = await Promise.all(
-              coursesData.map(async (course: Course): Promise<Enrollment> => {
-                try {
-                  const statusRes = await fetchWithAuth(`/api/enrollments/${course.id}/status`);
-                  let status: Enrollment['status'] = 'not_enrolled';
-                  if (statusRes.ok) {
-                    const statusData = await handleApiResponse<StatusResponse>(statusRes);
-                    status = statusData.status;
-                  } // 404 is handled as 'not_enrolled'
-
-                  return {
-                    id: course.id,
-                    course_title: course.title,
-                    status: status,
-                    course_id: course.id
-                  };
-                } catch (e) {
-                  if (e instanceof UnauthorizedError) throw e;
-                  if (e instanceof Error) {
-                    console.error(`Failed to fetch status for course ${course.id}: ${e.message}`);
-                  } else {
-                    console.error(`Failed to fetch status for course ${course.id}:`, e);
-                  }
-                  return {
-                    id: course.id,
-                    course_title: course.title,
-                    status: 'not_enrolled',
-                    course_id: course.id
-                  };
-                }
-              })
-            );
-            setEnrollments(enrollmentsWithStatus);
-          } else {
-            setEnrollments([]);
-          }
+          // If no courseId is provided, show an error message as this page is for specific course payments.
+          setError('No course selected. Please select a course to make a payment.');
         }
       } catch (err) {
         if (err instanceof UnauthorizedError) {
@@ -177,7 +127,7 @@ const Payment = () => {
 
     try {
       // The endpoint uses the courseId from the URL.
-                const res = await fetchWithAuth(`/api/enrollments/submit-payment-proof`, {
+      const res = await fetchWithAuth(`/api/enrollments/submit-payment-proof`, {
         method: 'POST',
         body: formData,
       });
@@ -262,57 +212,6 @@ const Payment = () => {
       </Card>
     );
   };
-  
-  const getStatusColor = (status: Enrollment['status']) => {
-    switch (status) {
-      case 'enrolled':
-      case 'approved':
-        return 'text-green-600';
-      case 'pending':
-        return 'text-yellow-600';
-      case 'rejected':
-        return 'text-red-600';
-      default:
-        return '';
-    }
-  };
-
-  const renderEnrollmentList = () => {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>My Enrollments</CardTitle>
-          <CardDescription>Here is the status of all your course enrollments.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {enrollments.length > 0 ? (
-            <ul className="space-y-4">
-              {enrollments.map(enrollment => (
-                <li key={enrollment.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center">
-                    <BookOpen className="h-5 w-5 mr-3 text-primary" />
-                    <span className="font-medium">{enrollment.course_title}</span>
-                  </div>
-                  <div className="flex items-center">
-                    {enrollment.status !== 'not_enrolled' && (
-                      <span className={`text-sm font-semibold capitalize mr-4 ${getStatusColor(enrollment.status)}`}>
-                        {enrollment.status.replace('_', ' ')}
-                      </span>
-                    )}
-                    <Link to={`/student/courses/${enrollment.course_id}`}>
-                      <Button variant="outline" size="sm">View Details</Button>
-                    </Link>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-center text-muted-foreground">You have no active enrollments.</p>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (error) return <div className="flex justify-center items-center h-screen text-red-500"><AlertCircle className="mr-2" /> {error}</div>;
@@ -320,24 +219,20 @@ const Payment = () => {
   return (
     <DashboardLayout userType="student">
       <div className="p-6">
-        {courseId ? (
-          <div className="space-y-4">
-            {enrollmentStatus && renderStatus()}
-            {enrollmentStatus !== 'enrolled' && enrollmentStatus !== 'approved' && enrollmentStatus !== 'pending' && renderPaymentForm()}
-            {(enrollmentStatus === 'enrolled' || enrollmentStatus === 'approved') && (
-              <div className="text-center p-8 bg-green-50 rounded-lg">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold">Enrollment Confirmed</h2>
-                <p className="text-muted-foreground">You can now access all materials for this course.</p>
-                <Link to={`/student/courses/${courseId}`}>
-                  <Button className="mt-4">Go to Course</Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        ) : (
-          renderEnrollmentList()
-        )}
+        <div className="space-y-4">
+          {enrollmentStatus && renderStatus()}
+          {enrollmentStatus !== 'enrolled' && enrollmentStatus !== 'approved' && enrollmentStatus !== 'pending' && renderPaymentForm()}
+          {(enrollmentStatus === 'enrolled' || enrollmentStatus === 'approved') && (
+            <div className="text-center p-8 bg-green-50 rounded-lg">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold">Enrollment Confirmed</h2>
+              <p className="text-muted-foreground">You can now access all materials for this course.</p>
+              <Link to={`/student/courses/${courseId}`}>
+                <Button className="mt-4">Go to Course</Button>
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
