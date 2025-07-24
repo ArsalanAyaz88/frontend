@@ -47,12 +47,12 @@ const EnrollmentApplication: React.FC = () => {
             const uploadFormData = new FormData();
             uploadFormData.append('file', certificate);
 
-            const uploadResponse = await fetchWithAuth('/api/enrollments/upload-certificate', {
+            const uploadResponse = await fetchWithAuth('/api/uploads/certificate', {
                 method: 'POST',
                 body: uploadFormData,
             });
             const uploadData = await uploadResponse.json();
-            const certificateUrl = uploadData.certificate_url;
+            const certificateUrl = uploadData.file_url; // Corrected to use file_url from the new endpoint
 
             // Step 2: Submit the application with the returned URL
             const applicationPayload = {
