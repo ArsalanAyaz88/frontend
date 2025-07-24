@@ -4,77 +4,69 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 
-// Interfaces
+// --- INTERFACES ---
+interface BankAccount {
+  id: string;
+  bank_name: string;
+  account_title: string;
+  account_number: string;
+  iban: string;
+}
+
 interface PurchaseInfo {
-  course_title: string;
   course_price: number;
-  bank_accounts: {
-    bank_name: string;
-    account_name: string;
-    account_number: string;
-  }[];
+  bank_accounts: BankAccount[];
 }
 
 interface StatusResponse {
   status: 'pending' | 'enrolled' | 'rejected' | 'not_enrolled' | 'approved';
 }
 
-interface SubmissionResponse {
-  detail: string;
+interface UploadResponse {
+  file_url: string;
 }
 
 const Payment = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
 
-  // State
+  // --- STATE ---
   const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
-
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>('');
+  const [transactionId, setTransactionId] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // --- EFFECTS ---
   useEffect(() => {
     const fetchData = async () => {
+      if (!courseId) {
+        setError('No course selected.');
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      setError(null);
       try {
-        if (courseId) {
-          // Fetch purchase info first, as it's required to render the form.
-          const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
-          const purchaseData = await handleApiResponse<PurchaseInfo>(purchaseInfoRes);
-          setPurchaseInfo(purchaseData);
-
-          // Then, fetch the enrollment status, which might not exist yet.
-          try {
-            const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
-            if (statusRes.ok) {
-              const statusData = await handleApiResponse<StatusResponse>(statusRes);
-              setEnrollmentStatus(statusData.status);
-            } else {
-              // A 404 or other non-ok status means not enrolled or no status yet.
-              setEnrollmentStatus(null);
-            }
-          } catch (statusError) {
-            // If fetching status fails, we assume the user is not enrolled and can proceed.
-            if (statusError instanceof Error) {
-              console.warn(`Could not fetch enrollment status: ${statusError.message}`);
-            } else {
-              console.warn("Could not fetch enrollment status, assuming not enrolled:", statusError);
-            }
-            setEnrollmentStatus(null);
-          }
-        } else {
-          // If no courseId is provided, show an error message as this page is for specific course payments.
-          setError('No course selected. Please select a course to make a payment.');
+        const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
+        const purchaseData = await handleApiResponse<PurchaseInfo>(purchaseInfoRes);
+        setPurchaseInfo(purchaseData);
+        if (purchaseData.bank_accounts.length > 0) {
+          setSelectedBankAccountId(purchaseData.bank_accounts[0].id);
         }
+
+        const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
+        const statusData = await handleApiResponse<StatusResponse>(statusRes);
+        setEnrollmentStatus(statusData.status);
+
       } catch (err) {
         if (err instanceof UnauthorizedError) {
           toast.error('Session expired. Please log in again.');
@@ -83,18 +75,17 @@ const Payment = () => {
           setError(err.message);
           toast.error(err.message);
         } else {
-          const errorMessage = 'An unexpected error occurred.';
-          setError(errorMessage);
-          toast.error(errorMessage);
+          setError('An unexpected error occurred.');
+          toast.error('An unexpected error occurred.');
         }
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [courseId, navigate]);
 
+  // --- HANDLERS ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -110,44 +101,52 @@ const Payment = () => {
   };
 
   const handleSubmitProof = async () => {
-    if (!uploadedFile) {
-      toast.error('Please select a file to upload.');
+    if (!uploadedFile || !selectedBankAccountId || !transactionId) {
+      toast.error('Please fill all fields and select a payment proof file.');
       return;
     }
-    if (!courseId) {
-      toast.error('Course ID is missing from the URL.');
-      return;
-    }
+    if (!courseId) return;
 
     setIsSubmitting(true);
-    const formData = new FormData();
-    // The backend expects the file under the field name 'file'.
-    formData.append('file', uploadedFile);
-    formData.append('course_id', courseId);
 
     try {
-      // The endpoint uses the courseId from the URL.
-      const res = await fetchWithAuth(`/api/enrollments/submit-payment-proof`, {
+      // Step 1: Upload the payment proof file
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', uploadedFile);
+      const uploadRes = await fetchWithAuth('/api/uploads/payment-proof', {
         method: 'POST',
-        body: formData,
+        body: uploadFormData,
       });
-      
-      const result = await handleApiResponse<SubmissionResponse>(res);
-      toast.success(result.detail || 'Payment proof submitted successfully!');
-      // Update UI to show pending status
-      setEnrollmentStatus('pending');
+      const uploadData = await handleApiResponse<UploadResponse>(uploadRes);
+      const proofUrl = uploadData.file_url;
+
+      // Step 2: Submit the proof details with the URL
+      const submissionPayload = {
+        course_id: courseId,
+        bank_account_id: selectedBankAccountId,
+        transaction_id: transactionId,
+        file_url: proofUrl,
+      };
+
+      await fetchWithAuth(`/api/enrollments/submit-payment-proof`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submissionPayload),
+      });
+
+      toast.success('Payment proof submitted successfully!');
+      setEnrollmentStatus('pending'); // Update UI to show pending status
       setUploadedFile(null);
+      setTransactionId('');
     } catch (err) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error('Failed to submit payment proof.');
-      }
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit payment proof.';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // --- RENDER LOGIC ---
   const renderStatus = () => {
     if (!enrollmentStatus) return null;
     let statusIcon, statusText, statusColor;
@@ -158,7 +157,7 @@ const Payment = () => {
         statusColor = 'bg-yellow-100 border-yellow-400 text-yellow-700';
         break;
       case 'enrolled':
-      case 'approved': // Treat 'approved' as 'enrolled'
+      case 'approved':
         statusIcon = <CheckCircle className="h-5 w-5" />;
         statusText = 'Payment successful! You are now enrolled in the course.';
         statusColor = 'bg-green-100 border-green-400 text-green-700';
@@ -174,9 +173,7 @@ const Payment = () => {
       <div className={`border-l-4 p-4 rounded-md ${statusColor}`} role="alert">
         <div className="flex items-center">
           <div className="py-1">{statusIcon}</div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">{statusText}</p>
-          </div>
+          <div className="ml-3"><p className="text-sm font-medium">{statusText}</p></div>
         </div>
       </div>
     );
@@ -188,23 +185,40 @@ const Payment = () => {
       <Card>
         <CardHeader>
           <CardTitle>Complete Your Enrollment</CardTitle>
-          <CardDescription>To enroll in "{purchaseInfo.course_title}", please transfer ${purchaseInfo.course_price} to one of the accounts below and upload your proof of payment.</CardDescription>
+          <CardDescription>To enroll, please transfer {purchaseInfo.course_price} PKR to one of the accounts below and upload your proof of payment.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
             <h3 className="font-semibold mb-2">Bank Accounts</h3>
-            <ul className="list-disc list-inside space-y-1 text-sm">
+            <ul className="list-disc list-inside space-y-2 text-sm">
               {purchaseInfo.bank_accounts.map(acc => (
-                <li key={acc.account_number}><strong>{acc.bank_name}:</strong> {acc.account_number} (A/N: {acc.account_name})</li>
+                <li key={acc.id}><strong>{acc.bank_name}:</strong> {acc.account_number} (Title: {acc.account_title}, IBAN: {acc.iban})</li>
               ))}
             </ul>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bank-account">Paid To (Bank Account)</Label>
+            <Select onValueChange={setSelectedBankAccountId} value={selectedBankAccountId}>
+              <SelectTrigger id="bank-account">
+                <SelectValue placeholder="Select the bank account you paid to" />
+              </SelectTrigger>
+              <SelectContent>
+                {purchaseInfo.bank_accounts.map(acc => (
+                  <SelectItem key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="transaction-id">Transaction ID / Reference No.</Label>
+            <Input id="transaction-id" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="e.g., FT23456789" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="payment-proof">Upload Payment Proof</Label>
             <Input id="payment-proof" type="file" onChange={handleFileChange} accept=".png,.jpg,.jpeg,.pdf" />
             <p className="text-xs text-muted-foreground">Accepted formats: PNG, JPG, PDF. Max size: 5MB.</p>
           </div>
-          <Button onClick={handleSubmitProof} disabled={isSubmitting || !uploadedFile} className="w-full">
+          <Button onClick={handleSubmitProof} disabled={isSubmitting || !uploadedFile || !transactionId || !selectedBankAccountId} className="w-full">
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Submit Payment Proof
           </Button>
