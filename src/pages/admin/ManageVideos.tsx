@@ -61,11 +61,13 @@ const ManageVideos: React.FC = () => {
     setLoadingVideos(true);
     setVideos([]);
     try {
-      const response = await fetchWithAuth(`/api/admin/courses/${courseId}/videos`);
+      const response = await fetchWithAuth(`/api/admin/videos?course_id=${courseId}`);
       const data = await handleApiResponse(response);
       setVideos(Array.isArray(data) ? data : []);
-    } catch (error) {
-      toast.error('Failed to fetch videos for the selected course.');
+    } catch (error: any) {
+        console.error("Failed to fetch videos:", error);
+        const errorMessage = error.response?.data?.detail || 'Failed to fetch videos for the selected course.';
+        toast.error(errorMessage);
     } finally {
       setLoadingVideos(false);
     }
