@@ -63,11 +63,12 @@ const AdminNotifications = () => {
             'Authorization': `Bearer ${token}`
           }
         });
-        const data = await handleApiResponse(response);
+        const data = await handleApiResponse<Notification[]>(response);
         setNotifications(data);
-      } catch (error: any) {
-        setError(error.message || 'Failed to fetch notifications.');
-        toast.error(error.message || 'Failed to fetch notifications.');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch notifications.';
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -76,9 +77,33 @@ const AdminNotifications = () => {
     fetchNotifications();
   }, []);
 
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(notifications.filter((n) => n.id !== id));
-    toast.success('Notification dismissed.');
+  const handleDeleteNotification = async (id: string) => {
+    const originalNotifications = [...notifications];
+    // Optimistically remove the notification from the UI
+    setNotifications(currentNotifications => currentNotifications.filter(n => n.id !== id));
+
+    try {
+      const token = localStorage.getItem('admin_access_token');
+      const response = await fetchWithAuth(`https://student-portal-lms-seven.vercel.app/api/admin/notifications/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        // If the API call fails, revert the UI and show an error
+        setNotifications(originalNotifications);
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to delete notification.' }));
+        toast.error(errorData.detail);
+      } else {
+        toast.success('Notification deleted successfully.');
+      }
+    } catch (error: any) {      
+      // Revert the UI on any exception
+      setNotifications(originalNotifications); // Revert UI changes on failure
+      toast.error('An unexpected error occurred.');
+    }
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -145,7 +170,7 @@ const AdminNotifications = () => {
                           <CardDescription>{new Date(notification.timestamp).toLocaleString()}</CardDescription>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => handleMarkAsRead(notification.id)} className="text-muted-foreground hover:text-primary">
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteNotification(notification.id)} className="text-muted-foreground hover:text-primary">
                         <Trash2 className="h-5 w-5" />
                       </Button>
                     </div>
