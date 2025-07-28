@@ -30,7 +30,8 @@ interface Video {
   id: string;
   title: string;
   description: string;
-  video_url: string;
+  video_url: string; // This might be legacy, the new URL is in cloudinary_url
+  cloudinary_url: string; // The actual S3 URL is here
   public_id: string; // Using public_id to store S3 file_key for compatibility
   course_id: string;
   order: number;
@@ -300,7 +301,7 @@ const ManageVideos: React.FC = () => {
                   <TableCell>{video.duration ? `${(video.duration / 60).toFixed(2)} mins` : 'N/A'}</TableCell>
                   <TableCell>{video.is_preview ? 'Yes' : 'No'}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleOpenPreviewModal(video.video_url)}><PlayCircle className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenPreviewModal(video.cloudinary_url || video.video_url)}><PlayCircle className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleOpenModal(video)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleOpenQuizModal(video)}>Quiz</Button>
                     <Button variant="destructive" size="sm" onClick={() => handleDelete(video.id)}><Trash2 className="h-4 w-4" /></Button>
