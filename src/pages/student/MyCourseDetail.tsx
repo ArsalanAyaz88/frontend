@@ -86,7 +86,7 @@ const MyCourseDetail: FC = () => {
 
       try {
         setStatusLoading(true);
-        const response = await fetch(`/api/enrollments/${courseId}/status`, {
+        const response = await fetch(`/api/courses/my-courses/${courseId}/enrollment-status`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
 
