@@ -40,9 +40,8 @@ interface Video {
 }
 
 // Quiz types can remain as they are, they are not directly related to the S3 change
-interface Option { id?: string; text: string; is_correct: boolean; }
-interface Question { id?: string; text: string; options: Option[]; }
-interface Quiz { id: string; title: string; description: string; video_id: string; questions?: Question[]; }
+
+
 
 const ManageVideos: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -65,8 +64,8 @@ const ManageVideos: React.FC = () => {
     setVideos([]);
     try {
       const response = await fetchWithAuth(`/api/admin/videos?course_id=${courseId}`);
-      const data = await handleApiResponse(response);
-      setVideos(Array.isArray(data) ? data : []);
+      const data = await handleApiResponse(response) as Video[];
+      setVideos(data || []);
     } catch (error: any) {
         console.error("Failed to fetch videos:", error);
         const errorMessage = error.response?.data?.detail || 'Failed to fetch videos for the selected course.';
@@ -120,9 +119,24 @@ const ManageVideos: React.FC = () => {
     setVideoDuration(0);
   };
 
-  const handleOpenPreviewModal = (url: string) => {
-    setPreviewVideoUrl(url);
-    setIsPreviewModalOpen(true);
+  const handleOpenPreviewModal = async (videoId: string) => {
+    if (!videoId) {
+      toast.error("Video ID is missing.");
+      return;
+    }
+    try {
+      const response = await fetchWithAuth(`/api/admin/videos/${videoId}/view-url`);
+      const data = await handleApiResponse(response) as { view_url: string };
+      if (data.view_url) {
+        setPreviewVideoUrl(data.view_url);
+        setIsPreviewModalOpen(true);
+      } else {
+        toast.error("Could not retrieve video playback URL.");
+      }
+    } catch (error) {
+      console.error("Failed to get video view URL:", error);
+      toast.error("Failed to get video playback URL.");
+    }
   };
 
   const handleClosePreviewModal = () => {
@@ -189,8 +203,7 @@ const ManageVideos: React.FC = () => {
             // 2. Upload file to S3 using the pre-signed URL
             await axios.put(s3Data.presigned_url, selectedFile, {
                 headers: { 
-                    'Content-Type': selectedFile.type,
-                    'x-amz-acl': 'public-read'
+                    'Content-Type': selectedFile.type
                 },
                 onUploadProgress: (progressEvent: any) => {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -248,10 +261,7 @@ const ManageVideos: React.FC = () => {
 };
 
 
-  // Quiz handlers (stubs)
-  const handleOpenQuizModal = (video: Video) => {
-    toast.info("Quiz management is not implemented in this view.");
-  };
+
 
   return (
     <DashboardLayout userType="admin">
@@ -304,7 +314,7 @@ const ManageVideos: React.FC = () => {
                   <TableCell>{video.duration ? `${(video.duration / 60).toFixed(2)} mins` : 'N/A'}</TableCell>
                   <TableCell>{video.is_preview ? 'Yes' : 'No'}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleOpenPreviewModal(video.cloudinary_url || video.video_url)}><PlayCircle className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenPreviewModal(video.id)}><PlayCircle className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleOpenModal(video)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="destructive" size="sm" onClick={() => handleDelete(video.id)}><Trash2 className="h-4 w-4" /></Button>
                   </TableCell>
