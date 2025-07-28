@@ -52,7 +52,7 @@ const CourseDetail: FC = () => {
             try {
                 const coursePromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`).then(res => handleApiResponse<CourseInfo>(res));
                 
-                const applicationStatusPromise = fetchWithAuth(`/api/enrollments/${courseId}/status`)
+                const applicationStatusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`)
                     .then(res => handleApiResponse<ApplicationStatusResponse>(res))
                     .catch(() => ({ status: 'NOT_APPLIED' as const })); // Default status on error
 
