@@ -188,14 +188,14 @@ const ManageVideos: React.FC = () => {
         }
 
         // 3. Prepare metadata for our backend
-        const videoMetaData = {
-            title: currentVideo.title || 'Untitled Video',
-            description: currentVideo.description || '',
-            is_preview: currentVideo.is_preview || false,
-            order: currentVideo.order || 1,
+        const videoData = {
+            title: currentVideo.title,
+            description: currentVideo.description,
             video_url: videoUrl,
-            file_key: fileKey,
-            duration: videoDuration || currentVideo.duration || 0,
+            file_key: fileKey, // Match backend schema
+            duration: videoDuration,
+            is_preview: currentVideo.is_preview,
+            order: currentVideo.order || 0, // Match backend schema
         };
 
         const endpoint = currentVideo.id
@@ -207,7 +207,7 @@ const ManageVideos: React.FC = () => {
         const response = await fetchWithAuth(endpoint, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(videoMetaData),
+            body: JSON.stringify(videoData),
         });
 
         const savedVideo = await handleApiResponse(response) as Video;
