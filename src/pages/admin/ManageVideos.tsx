@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Loader2, Trash2, Pencil } from 'lucide-react';
+import { PlusCircle, Loader2, Trash2, Pencil, PlayCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,6 +50,8 @@ const ManageVideos: React.FC = () => {
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
   const [currentVideo, setCurrentVideo] = useState<Partial<Video> | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -115,6 +117,16 @@ const ManageVideos: React.FC = () => {
     setUploadProgress(0);
     setIsUploading(false);
     setVideoDuration(0);
+  };
+
+  const handleOpenPreviewModal = (url: string) => {
+    setPreviewVideoUrl(url);
+    setIsPreviewModalOpen(true);
+  };
+
+  const handleClosePreviewModal = () => {
+    setIsPreviewModalOpen(false);
+    setPreviewVideoUrl(null);
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -288,6 +300,7 @@ const ManageVideos: React.FC = () => {
                   <TableCell>{video.duration ? `${(video.duration / 60).toFixed(2)} mins` : 'N/A'}</TableCell>
                   <TableCell>{video.is_preview ? 'Yes' : 'No'}</TableCell>
                   <TableCell className="text-right space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenPreviewModal(video.video_url)}><PlayCircle className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleOpenModal(video)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleOpenQuizModal(video)}>Quiz</Button>
                     <Button variant="destructive" size="sm" onClick={() => handleDelete(video.id)}><Trash2 className="h-4 w-4" /></Button>
@@ -338,6 +351,22 @@ const ManageVideos: React.FC = () => {
             <Button onClick={handleSave} disabled={isUploading}>
               {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPreviewModalOpen} onOpenChange={(isOpen) => !isOpen && handleClosePreviewModal()}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Video Preview</DialogTitle>
+          </DialogHeader>
+          {previewVideoUrl && (
+            <video controls autoPlay src={previewVideoUrl} className="w-full rounded-lg mt-4 max-h-[70vh]">
+              Your browser does not support the video tag.
+            </video>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClosePreviewModal}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
