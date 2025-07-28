@@ -188,7 +188,10 @@ const ManageVideos: React.FC = () => {
 
             // 2. Upload file to S3 using the pre-signed URL
             await axios.put(s3Data.presigned_url, selectedFile, {
-                headers: { 'Content-Type': selectedFile.type },
+                headers: { 
+                    'Content-Type': selectedFile.type,
+                    'x-amz-acl': 'public-read'
+                },
                 onUploadProgress: (progressEvent: any) => {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
                     setUploadProgress(percentCompleted);
