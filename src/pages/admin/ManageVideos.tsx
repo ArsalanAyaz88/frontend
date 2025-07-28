@@ -303,7 +303,6 @@ const ManageVideos: React.FC = () => {
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => handleOpenPreviewModal(video.cloudinary_url || video.video_url)}><PlayCircle className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => handleOpenModal(video)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => handleOpenQuizModal(video)}>Quiz</Button>
                     <Button variant="destructive" size="sm" onClick={() => handleDelete(video.id)}><Trash2 className="h-4 w-4" /></Button>
                   </TableCell>
                 </TableRow>
