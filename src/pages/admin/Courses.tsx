@@ -113,7 +113,7 @@ export default function AdminCourses() {
         const thumbFormData = new FormData();
         thumbFormData.append('file', thumbnailFile);
         try {
-          const res = await api.post('/api/upload/image', thumbFormData);
+          const res = await api.post('/api/admin/upload/image', thumbFormData);
           thumbnailUrl = res.data.url;
         } catch (error) {
           console.error('Thumbnail upload failed:', error);
