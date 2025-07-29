@@ -115,6 +115,8 @@ export default function AdminCourses() {
         try {
           const res = await api.post('/api/admin/upload/image', thumbFormData);
           thumbnailUrl = res.data.url;
+          // Update the preview with the new URL from S3
+          setThumbnailPreview(thumbnailUrl);
         } catch (error) {
           console.error('Thumbnail upload failed:', error);
           toast.error('Failed to upload thumbnail. Please try again.');
@@ -169,7 +171,13 @@ export default function AdminCourses() {
     if (files.length > 0) {
       const file = files[0];
       setThumbnailFile(file);
-      setThumbnailPreview(URL.createObjectURL(file));
+
+      // Use FileReader to generate a stable base64 preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
