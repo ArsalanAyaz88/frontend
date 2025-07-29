@@ -87,7 +87,7 @@ export default function AdminCourses() {
   const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/api/admin/courses');
+      const response = await api.get('/api/courses');
       setCourses(response.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch courses';
@@ -113,7 +113,7 @@ export default function AdminCourses() {
         const thumbFormData = new FormData();
         thumbFormData.append('file', thumbnailFile);
         try {
-          const res = await api.post('/api/admin/upload/image', thumbFormData);
+          const res = await api.post('/api/upload/image', thumbFormData);
           thumbnailUrl = res.data.url;
         } catch (error) {
           console.error('Thumbnail upload failed:', error);
@@ -139,8 +139,8 @@ export default function AdminCourses() {
       }
 
       const courseResponse = isUpdating
-        ? await api.put(`/api/admin/courses/${selectedCourse?.id}`, courseFormData)
-        : await api.post('/api/admin/courses', courseFormData);
+        ? await api.put(`/api/courses/${selectedCourse?.id}`, courseFormData)
+        : await api.post('/api/courses', courseFormData);
 
       const courseId = courseResponse.data.id || selectedCourse?._id;
 
@@ -183,7 +183,7 @@ export default function AdminCourses() {
   const handleDeleteCourse = async () => {
     if (!courseToDelete) return;
     try {
-      await api.delete(`/api/admin/courses/${courseToDelete}`);
+      await api.delete(`/api/courses/${courseToDelete}`);
       toast.success('Course deleted successfully');
       fetchCourses();
     } catch (error) {
