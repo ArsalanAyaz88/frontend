@@ -40,8 +40,6 @@ const CourseDetail: FC = () => {
     const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResponse['status'] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-    const [isThumbnailLoading, setIsThumbnailLoading] = useState(true);
 
     useEffect(() => {
         const fetchCourseAndStatus = async () => {
@@ -53,7 +51,8 @@ const CourseDetail: FC = () => {
 
             setIsLoading(true);
             try {
-                // Fetch main course details
+                // Fetch main course details and status in parallel.
+                // The backend now provides a presigned URL directly in courseResponse.data.image_url.
                 const coursePromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
                 const statusPromise = fetchWithAuth(`/api/courses/${courseId}/enrollment-status`);
 
@@ -78,28 +77,6 @@ const CourseDetail: FC = () => {
 
         fetchCourseAndStatus();
     }, [courseId, navigate]);
-
-    useEffect(() => {
-        const fetchThumbnail = async () => {
-            if (course?.id) {
-                setIsThumbnailLoading(true);
-                try {
-                    const response = await fetchWithAuth(`/api/courses/${course.id}/thumbnail-url`);
-                    const data = await handleApiResponse<ApiResponse<{ thumbnail_url: string }>>(response);
-                    setThumbnailUrl(data.data.thumbnail_url);
-                } catch (err) {
-                    console.error('Failed to fetch thumbnail:', err);
-                    setThumbnailUrl(null); // or set a placeholder
-                } finally {
-                    setIsThumbnailLoading(false);
-                }
-            }
-        };
-
-        if (course) {
-            fetchThumbnail();
-        }
-    }, [course]);
 
     const handleEnroll = async () => {
         if (!courseId) return;
@@ -147,10 +124,8 @@ const CourseDetail: FC = () => {
             <div className="container mx-auto px-4 py-8">
                 <Card>
                     <CardHeader>
-                        {isThumbnailLoading ? (
-                            <div className="w-full h-64 bg-gray-200 animate-pulse rounded-t-lg"></div>
-                        ) : thumbnailUrl ? (
-                            <img src={thumbnailUrl} alt={course.title} className="w-full h-64 object-cover rounded-t-lg" />
+                        {course.image_url ? (
+                            <img src={course.image_url} alt={course.title} className="w-full h-64 object-cover rounded-t-lg" />
                         ) : (
                             <div className="w-full h-64 bg-gray-200 flex items-center justify-center rounded-t-lg">
                                 <span className="text-gray-500">No Image Available</span>
