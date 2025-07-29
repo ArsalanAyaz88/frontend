@@ -54,7 +54,7 @@ const CourseDetail: FC = () => {
             setIsLoading(true);
             try {
                 // Fetch main course details
-                const coursePromise = fetchWithAuth(`/api/explore-courses/${courseId}`);
+                const coursePromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
                 const statusPromise = fetchWithAuth(`/api/courses/${courseId}/enrollment-status`);
 
                 const [courseResponse, statusResponse] = await Promise.all([

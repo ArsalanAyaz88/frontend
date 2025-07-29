@@ -23,7 +23,7 @@ const Courses = () => {
         setLoading(true);
         const token = localStorage.getItem('token');
         // NOTE: Please verify this is the correct endpoint to get all courses
-        const response = await axios.get('/api/student/explore-courses', {
+        const response = await axios.get('/api/courses/explore-courses', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCourses(response.data);
