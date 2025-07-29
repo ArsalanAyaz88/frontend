@@ -87,7 +87,7 @@ export default function AdminCourses() {
   const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/api/courses');
+      const response = await api.get("/api/admin/courses");
       setCourses(response.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch courses';
