@@ -113,9 +113,8 @@ export default function AdminCourses() {
         thumbFormData.append('file', thumbnailFile);
         try {
           const res = await api.post('/api/admin/upload/image', thumbFormData);
-          thumbnailUrl = res.data.url;
-          // Update the preview with the new URL from S3
-          setThumbnailPreview(thumbnailUrl);
+          thumbnailUrl = res.data.url; // This is the private S3 URL
+          // DO NOT set the preview to the private URL. The local blob preview is enough.
         } catch (error) {
           console.error('Thumbnail upload failed:', error);
           toast.error('Failed to upload thumbnail. Please try again.');
@@ -130,7 +129,7 @@ export default function AdminCourses() {
       courseFormData.append('title', data.title);
       courseFormData.append('description', data.description);
       courseFormData.append('price', data.price.toString());
-            if (data.difficulty_level) courseFormData.append('difficulty_level', data.difficulty_level);
+      if (data.difficulty_level) courseFormData.append('difficulty_level', data.difficulty_level);
       if (data.outcomes) courseFormData.append('outcomes', data.outcomes);
       if (data.prerequisites) courseFormData.append('prerequisites', data.prerequisites);
       if (data.curriculum) courseFormData.append('curriculum', data.curriculum);
@@ -143,19 +142,12 @@ export default function AdminCourses() {
         ? await api.put(`/api/admin/courses/${selectedCourse?.id}`, courseFormData)
         : await api.post('/api/admin/courses', courseFormData);
 
-      const courseId = courseResponse.data.id || selectedCourse?._id;
-
-      if (!courseId) {
-        toast.error('Failed to create or update course. Cannot upload videos.');
-        setIsSubmitting(false);
-        return;
-      }
-
-
-
       toast.success(`Course ${isUpdating ? 'updated' : 'created'} successfully!`);
-      fetchCourses();
+
+      // Step 3: Await fetching courses to get the new presigned URL before closing the dialog
+      await fetchCourses();
       setIsDialogOpen(false);
+
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || 'An unexpected error occurred.';
       toast.error(errorMessage);
