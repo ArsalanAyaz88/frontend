@@ -79,12 +79,7 @@ const CourseDetail: FC = () => {
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
-    const enrollmentFormRef = useRef<HTMLDivElement>(null);
-    const [showPaymentForm, setShowPaymentForm] = useState(false);
-    const [paymentFile, setPaymentFile] = useState<File | null>(null);
-    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
-    const paymentFileInputRef = useRef<HTMLInputElement>(null);
-    const paymentSectionRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         const fetchCourseAndCheckEnrollment = async () => {
             if (!courseId) {
@@ -109,7 +104,7 @@ const CourseDetail: FC = () => {
             } catch (err) {
                 if (err instanceof UnauthorizedError) {
                     navigate('/login');
-                } else {    
+                } else {
                     setError("Failed to load course details. Please try again later.");
                 }
             } finally {
@@ -119,6 +114,19 @@ const CourseDetail: FC = () => {
 
         fetchCourseAndCheckEnrollment();
     }, [courseId, navigate]);
+
+    // Auto-scroll to payment section when application is approved
+    useEffect(() => {
+        // This useEffect is no longer needed as payment form is removed
+        // if (applicationStatus === 'APPROVED' && paymentSectionRef.current) {
+        //     setTimeout(() => {
+        //         paymentSectionRef.current?.scrollIntoView({ 
+        //             behavior: 'smooth', 
+        //             block: 'start' 
+        //         });
+        //     }, 500); // Small delay to ensure the component is rendered
+        // }
+    }, []); // Removed applicationStatus from dependency array
 
     // Fetch videos when course is enrolled
     useEffect(() => {
@@ -149,10 +157,10 @@ const CourseDetail: FC = () => {
         
         // Scroll to enrollment form after a short delay to ensure it's rendered
         setTimeout(() => {
-            enrollmentFormRef.current?.scrollIntoView({ 
-                 behavior: 'smooth', 
-                 block: 'start' 
-            });
+            // enrollmentFormRef.current?.scrollIntoView({ 
+            //     behavior: 'smooth', 
+            //     block: 'start' 
+            // });
         }, 100);
     };
 
@@ -241,80 +249,12 @@ const CourseDetail: FC = () => {
         }
     };
 
-    const handleVideoToggleWatched = async (video: Video) => {
-        setCompletingVideoId(video.id);
-        try {
-            // Use the same endpoint for both watched and unwatched - backend handles the toggle
-            await fetchWithAuth(`/api/courses/videos/${video.id}/complete`, {
-                method: 'POST',
-            });
-            
-            // Toggle the local state
-            const newWatchedState = !video.watched;
-            setVideos(prevVideos => 
-                prevVideos.map(v => 
-                    v.id === video.id ? { ...v, watched: newWatchedState } : v
-                )
-            );
-            setSelectedVideo(prev => prev?.id === video.id ? { ...prev, watched: newWatchedState } : prev);
-            
-            // Show appropriate success message
-            toast.success(newWatchedState ? 'Video marked as completed!' : 'Video marked as unwatched!');
-        } catch (error) {
-            console.error('Failed to toggle video status:', error);
-            toast.error('Failed to update video status.');
-        } finally {
-            setCompletingVideoId(null);
-        }
-    };
-
     const handleVideoSelect = (video: Video) => {
         setSelectedVideo(video);
     };
 
-    const handlePaymentProofSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!courseId || !paymentFile) return;
-
-        setIsSubmittingPayment(true);
-        
-        try {
-            const formData = new FormData();
-            formData.append('file', paymentFile);
-            
-            const response = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof`, { 
-                method: 'POST',
-                body: formData,
-            });
-            await handleApiResponse(response);
-            toast.success('Payment proof submitted successfully!');
-            setShowPaymentForm(false);
-            setPaymentFile(null);
-        } catch (error) {
-            toast.error('Failed to submit payment proof.');
-        } finally {
-            setIsSubmittingPayment(false);
-        }
-    };
-
-    const handlePaymentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setPaymentFile(file);
-        }
-    };
-
-    const handleShowPaymentForm = () => {
-        setShowPaymentForm(true);
-        
-        // Scroll to payment form after a short delay to ensure it's rendered
-        setTimeout(() => {
-            paymentSectionRef.current?.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
-        }, 100);
-    };
+    // handlePaymentProofSubmit, handlePaymentFileChange, fetchPurchaseInfo, handleShowPaymentForm, handleVideoSelect, handleVideoPlay
+    // These functions are no longer needed as payment form is removed
 
     if (isLoading) {
         return (
@@ -361,12 +301,7 @@ const CourseDetail: FC = () => {
                         <CardDescription>Taught by: {course.instructor_name}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3 text-foreground">Course Description</h3>
-                            <div className="bg-muted/50 rounded-lg p-4 border border-border">
-                                <p className="text-foreground leading-relaxed">{course.description}</p>
-                            </div>
-                        </div>
+                        <p className="text-muted-foreground mb-6">{course.description}</p>
                         
                         {/* Enrollment Form Section */}
                         {!isEnrolled && (
@@ -494,88 +429,6 @@ const CourseDetail: FC = () => {
                             </div>
                         )}
 
-                        {/* Payment Proof Section */}
-                        {isEnrolled && !showPaymentForm && (
-                            <div className="mt-6 text-center">
-                                <Button 
-                                    onClick={handleShowPaymentForm} 
-                                    size="lg" 
-                                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                                >
-                                    Submit Payment Proof
-                                </Button>
-                            </div>
-                        )}
-                        
-                        {isEnrolled && showPaymentForm && (
-                            <Card className="mt-6" ref={paymentSectionRef}>
-                                <CardHeader>
-                                    <CardTitle>Payment Information</CardTitle>
-                                    <CardDescription>Please upload your proof of payment.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <form onSubmit={handlePaymentProofSubmit} className="space-y-4">
-                                        <div>
-                                            <Label htmlFor="payment_file">Payment Proof *</Label>
-                                            <div className="flex items-center space-x-2">
-                                                <Input
-                                                    id="payment_file"
-                                                    type="file"
-                                                    accept="image/*,.pdf"
-                                                    onChange={handlePaymentFileChange}
-                                                    ref={paymentFileInputRef}
-                                                    required
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={() => paymentFileInputRef.current?.click()}
-                                                >
-                                                    <Upload className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                            {paymentFile && (
-                                                <p className="text-sm text-green-600 mt-1">
-                                                    File selected: {paymentFile.name}
-                                                </p>
-                                            )}
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                Please upload a screenshot or photo of your payment receipt/confirmation.
-                                            </p>
-                                        </div>
-                                        
-                                        <div className="flex space-x-2">
-                                            <Button
-                                                type="submit"
-                                                disabled={isSubmittingPayment}
-                                                className="flex-1"
-                                            >
-                                                {isSubmittingPayment ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Submitting...
-                                                    </>
-                                                ) : (
-                                                    'Submit Payment Proof'
-                                                )}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setShowPaymentForm(false);
-                                                    setPaymentFile(null);
-                                                }}
-                                                disabled={isSubmittingPayment}
-                                            >
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        )}
-
                         {/* Video Player Section - Only show when enrolled */}
                         {isEnrolled && (
                             <div className="mt-8">
@@ -617,12 +470,12 @@ const CourseDetail: FC = () => {
                                                             <div className="p-4">
                                                                 <h4 className="text-xl font-semibold mb-2">{selectedVideo.title}</h4>
                                                                 <p className="text-muted-foreground">{selectedVideo.description}</p>
-                                                                <div className="flex items-center justify-between mt-4">
+                                                                <div className="flex items-center mt-2">
                                                                     <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
                                                                         {completingVideoId === selectedVideo.id ? (
                                                                             <>
                                                                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                                                Updating...
+                                                                                Marking as completed...
                                                                             </>
                                                                         ) : selectedVideo.watched ? (
                                                                             "Watched"
@@ -630,39 +483,6 @@ const CourseDetail: FC = () => {
                                                                             "Not Watched"
                                                                         )}
                                                                     </Badge>
-                                                                    
-                                                                    <Button
-                                                                        onClick={() => handleVideoToggleWatched(selectedVideo)}
-                                                                        disabled={completingVideoId === selectedVideo.id}
-                                                                        variant={selectedVideo.watched ? "outline" : "default"}
-                                                                        size="sm"
-                                                                        className={`transition-all duration-300 ${
-                                                                            selectedVideo.watched 
-                                                                                ? "border-orange-500 text-orange-600 hover:bg-orange-50 hover:border-orange-600" 
-                                                                                : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg hover:shadow-xl"
-                                                                        }`}
-                                                                    >
-                                                                        {completingVideoId === selectedVideo.id ? (
-                                                                            <>
-                                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                                Updating...
-                                                                            </>
-                                                                        ) : selectedVideo.watched ? (
-                                                                            <>
-                                                                                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                                                </svg>
-                                                                                Mark as Unwatched
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                                Mark as Watched
-                                                                            </>
-                                                                        )}
-                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -706,47 +526,18 @@ const CourseDetail: FC = () => {
                                                                             {video.description}
                                                                         </p>
                                                                     </div>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <Badge 
-                                                                            variant={video.watched ? "default" : "secondary"}
-                                                                            className="text-xs"
-                                                                        >
-                                                                            {completingVideoId === video.id ? (
-                                                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                                            ) : video.watched ? (
-                                                                                "✓"
-                                                                            ) : (
-                                                                                "○"
-                                                                            )}
-                                                                        </Badge>
-                                                                        
-                                                                        <Button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleVideoToggleWatched(video);
-                                                                            }}
-                                                                            disabled={completingVideoId === video.id}
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className={`h-6 w-6 p-0 transition-all duration-200 ${
-                                                                                video.watched 
-                                                                                    ? "text-orange-500 hover:text-orange-600 hover:bg-orange-50" 
-                                                                                    : "text-green-500 hover:text-green-600 hover:bg-green-50"
-                                                                            }`}
-                                                                        >
-                                                                            {completingVideoId === video.id ? (
-                                                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                                            ) : video.watched ? (
-                                                                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                                                </svg>
-                                                                            ) : (
-                                                                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                            )}
-                                                                        </Button>
-                                                                    </div>
+                                                                    <Badge 
+                                                                        variant={video.watched ? "default" : "secondary"}
+                                                                        className="ml-2 text-xs"
+                                                                    >
+                                                                        {completingVideoId === video.id ? (
+                                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                                        ) : video.watched ? (
+                                                                            "✓"
+                                                                        ) : (
+                                                                            "○"
+                                                                        )}
+                                                                    </Badge>
                                                                 </div>
                                                             </div>
                                                         ))}
