@@ -73,6 +73,7 @@ const CourseDetail: FC = () => {
     const [paymentFile, setPaymentFile] = useState<File | null>(null);
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
+    const paymentSectionRef = useRef<HTMLDivElement>(null);
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
     const [paymentSubmitted, setPaymentSubmitted] = useState(false);
@@ -112,6 +113,18 @@ const CourseDetail: FC = () => {
 
         fetchCourseAndStatus();
     }, [courseId, navigate]);
+
+    // Auto-scroll to payment section when application is approved
+    useEffect(() => {
+        if (applicationStatus === 'APPROVED' && paymentSectionRef.current) {
+            setTimeout(() => {
+                paymentSectionRef.current?.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }, 500); // Small delay to ensure the component is rendered
+        }
+    }, [applicationStatus]);
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
@@ -420,26 +433,28 @@ const CourseDetail: FC = () => {
                             </div>
                         )}
                         {applicationStatus === 'APPROVED' && showPaymentForm && !paymentSubmitted && (
-                            <Card className="mt-6">
+                            <Card className="mt-6" ref={paymentSectionRef}>
                                 <CardHeader>
                                     <CardTitle>Payment Information</CardTitle>
                                     <CardDescription>Please make the payment and upload your proof of payment.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                     {purchaseInfo && (
-                                        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                            <h3 className="text-lg font-semibold mb-3">Payment Details</h3>
-                                            <div className="space-y-2">
-                                                <p><strong>Course:</strong> {purchaseInfo.course_title}</p>
-                                                <p><strong>Amount:</strong> ${purchaseInfo.course_price.toLocaleString()}</p>
+                                        <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                                            <h3 className="text-xl font-bold mb-4 text-blue-800">Payment Details</h3>
+                                            <div className="space-y-3">
+                                                <div className="p-3 bg-white rounded-lg border border-blue-200">
+                                                    <p className="text-lg"><span className="font-semibold text-blue-800">Course:</span> {purchaseInfo.course_title}</p>
+                                                    <p className="text-lg"><span className="font-semibold text-blue-800">Amount:</span> <span className="text-green-600 font-bold">${purchaseInfo.course_price.toLocaleString()}</span></p>
+                                                </div>
                                                 
                                                 <div className="mt-4">
-                                                    <h4 className="font-medium mb-2">Bank Account Details:</h4>
+                                                    <h4 className="font-bold mb-3 text-blue-800">Bank Account Details:</h4>
                                                     {purchaseInfo.bank_accounts.map((account, index) => (
-                                                        <div key={index} className="p-3 bg-white rounded border">
-                                                            <p><strong>Bank:</strong> {account.bank_name}</p>
-                                                            <p><strong>Account Name:</strong> {account.account_name}</p>
-                                                            <p><strong>Account Number:</strong> {account.account_number}</p>
+                                                        <div key={index} className="p-4 bg-white rounded-lg border-2 border-blue-300 shadow-sm">
+                                                            <p className="mb-2"><span className="font-semibold text-blue-800">Bank:</span> {account.bank_name}</p>
+                                                            <p className="mb-2"><span className="font-semibold text-blue-800">Account Name:</span> {account.account_name}</p>
+                                                            <p><span className="font-semibold text-blue-800">Account Number:</span> <span className="font-mono bg-gray-100 px-2 py-1 rounded">{account.account_number}</span></p>
                                                         </div>
                                                     ))}
                                                 </div>
