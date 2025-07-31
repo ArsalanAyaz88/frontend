@@ -27,9 +27,6 @@ interface ApplicationStatusResponse {
     status: 'NOT_APPLIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
-interface ApiResponse<T> {
-    data: T;
-}
 
 const CourseDetail: FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -56,11 +53,11 @@ const CourseDetail: FC = () => {
                 const statusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
 
                 const [courseResponse, statusResponse] = await Promise.all([
-                    handleApiResponse<ApiResponse<CourseInfo>>(await coursePromise),
+                    handleApiResponse<CourseInfo>(await coursePromise),
                     handleApiResponse<ApplicationStatusResponse>(await statusPromise),
                 ]);
 
-                setCourse(courseResponse.data);
+                setCourse(courseResponse);
                 setApplicationStatus(statusResponse.status);
 
             } catch (err) {
