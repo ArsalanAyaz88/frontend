@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Play } from 'lucide-react';
-import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
+import { fetchWithAuth, handleApiResponse } from '@/lib/api';
 import DashboardLayout from "@/components/DashboardLayout";
 
 interface EnrolledCourse {
@@ -35,49 +35,15 @@ const Courses = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Debug: Check authentication status
-    const checkAuth = () => {
-      const adminToken = localStorage.getItem('admin_access_token');
-      const userSessionString = localStorage.getItem('user');
-      
-      console.log('Auth Debug:', {
-        adminToken: adminToken ? 'Present' : 'Not found',
-        userSession: userSessionString ? 'Present' : 'Not found'
-      });
-      
-      if (userSessionString) {
-        try {
-          const userSession = JSON.parse(userSessionString);
-          console.log('User session:', {
-            email: userSession.email,
-            role: userSession.role,
-            hasAccessToken: !!userSession.access_token,
-            accessTokenLength: userSession.access_token?.length || 0
-          });
-        } catch (e) {
-          console.error('Failed to parse user session:', e);
-        }
-      }
-    };
-    
-    checkAuth();
-
     const fetchEnrolledCourses = async () => {
       try {
         setIsEnrolledLoading(true);
-        console.log('Fetching enrolled courses...');
         const response = await fetchWithAuth('/api/courses/my-courses');
-        console.log('Enrolled courses response:', response);
         const data = await handleApiResponse<EnrolledCourse[]>(response);
-        console.log('Enrolled courses data:', data);
         setEnrolledCourses(data);
       } catch (err) {
         console.error('Failed to fetch enrolled courses:', err);
-        if (err instanceof UnauthorizedError) {
-          setError('Please log in to view your enrolled courses.');
-        } else {
-          setError('Failed to load enrolled courses.');
-        }
+        setError('Failed to load enrolled courses.');
       } finally {
         setIsEnrolledLoading(false);
       }
@@ -86,19 +52,12 @@ const Courses = () => {
     const fetchExploreCourses = async () => {
       try {
         setIsExploreLoading(true);
-        console.log('Fetching explore courses...');
         const response = await fetchWithAuth('/api/courses/explore-courses');
-        console.log('Explore courses response:', response);
         const data = await handleApiResponse<ExploreCourse[]>(response);
-        console.log('Explore courses data:', data);
         setExploreCourses(data);
       } catch (err) {
         console.error('Failed to fetch explore courses:', err);
-        if (err instanceof UnauthorizedError) {
-          setError('Please log in to explore courses.');
-        } else {
-          setError('Failed to load explore courses.');
-        }
+        setError('Failed to load explore courses.');
       } finally {
         setIsExploreLoading(false);
       }
@@ -108,25 +67,10 @@ const Courses = () => {
     fetchExploreCourses();
   }, []);
 
-  // Debug: Log current state
-  console.log('Current state:', {
-    enrolledCourses,
-    exploreCourses,
-    isEnrolledLoading,
-    isExploreLoading,
-    error
-  });
-
   return (
     <DashboardLayout userType="student">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">My Courses</h1>
-        
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600">{error}</p>
-          </div>
-        )}
         
         <Tabs defaultValue="enrolled" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
