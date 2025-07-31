@@ -30,6 +30,16 @@ interface ApplicationStatusResponse {
     status: 'NOT_APPLIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
+interface PurchaseInfo {
+    course_title: string;
+    course_price: number;
+    bank_accounts: {
+        bank_name: string;
+        account_name: string;
+        account_number: string;
+    }[];
+}
+
 interface EnrollmentFormData {
     first_name: string;
     last_name: string;
@@ -63,6 +73,9 @@ const CourseDetail: FC = () => {
     const [paymentFile, setPaymentFile] = useState<File | null>(null);
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
+    const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
+    const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
+    const [paymentSubmitted, setPaymentSubmitted] = useState(false);
 
     useEffect(() => {
         const fetchCourseAndStatus = async () => {
@@ -180,6 +193,7 @@ const CourseDetail: FC = () => {
             toast.success('Payment proof submitted successfully!');
             setShowPaymentForm(false);
             setPaymentFile(null);
+            setPaymentSubmitted(true);
         } catch (error) {
             toast.error('Failed to submit payment proof.');
         } finally {
@@ -192,6 +206,28 @@ const CourseDetail: FC = () => {
         if (file) {
             setPaymentFile(file);
         }
+    };
+
+    const fetchPurchaseInfo = async () => {
+        if (!courseId) return;
+        
+        setIsLoadingPurchaseInfo(true);
+        try {
+            const response = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
+            const data = await handleApiResponse<PurchaseInfo>(response);
+            setPurchaseInfo(data);
+        } catch (error) {
+            toast.error('Failed to load payment information.');
+        } finally {
+            setIsLoadingPurchaseInfo(false);
+        }
+    };
+
+    const handleShowPaymentForm = async () => {
+        if (!purchaseInfo) {
+            await fetchPurchaseInfo();
+        }
+        setShowPaymentForm(true);
     };
 
     if (isLoading) {
@@ -243,7 +279,7 @@ const CourseDetail: FC = () => {
                         
                         {applicationStatus === 'NOT_APPLIED' && !showEnrollmentForm && (
                             <Button onClick={handleEnroll} size="lg" className="w-full">
-                                Enroll Now (${course.price})
+                                Enroll Request Application (${course.price})
                             </Button>
                         )}
                         {applicationStatus === 'NOT_APPLIED' && showEnrollmentForm && (
@@ -363,21 +399,54 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         {applicationStatus === 'PENDING' && <p className="text-center text-yellow-500">Enrollment Pending</p>}
-                        {applicationStatus === 'APPROVED' && !showPaymentForm && (
+                        {applicationStatus === 'APPROVED' && !showPaymentForm && !paymentSubmitted && (
                             <div className="text-center">
                                 <p className="text-green-500 mb-4">Enrollment Approved!</p>
-                                <Button onClick={() => setShowPaymentForm(true)} size="lg" className="w-full">
-                                    Submit Payment Proof
+                                <Button 
+                                    onClick={handleShowPaymentForm} 
+                                    size="lg" 
+                                    className="w-full"
+                                    disabled={isLoadingPurchaseInfo}
+                                >
+                                    {isLoadingPurchaseInfo ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Loading Payment Info...
+                                        </>
+                                    ) : (
+                                        'Submit Payment Proof'
+                                    )}
                                 </Button>
                             </div>
                         )}
-                        {applicationStatus === 'APPROVED' && showPaymentForm && (
+                        {applicationStatus === 'APPROVED' && showPaymentForm && !paymentSubmitted && (
                             <Card className="mt-6">
                                 <CardHeader>
-                                    <CardTitle>Submit Payment Proof</CardTitle>
-                                    <CardDescription>Please upload your payment receipt or proof of payment.</CardDescription>
+                                    <CardTitle>Payment Information</CardTitle>
+                                    <CardDescription>Please make the payment and upload your proof of payment.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
+                                    {purchaseInfo && (
+                                        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                            <h3 className="text-lg font-semibold mb-3">Payment Details</h3>
+                                            <div className="space-y-2">
+                                                <p><strong>Course:</strong> {purchaseInfo.course_title}</p>
+                                                <p><strong>Amount:</strong> ${purchaseInfo.course_price.toLocaleString()}</p>
+                                                
+                                                <div className="mt-4">
+                                                    <h4 className="font-medium mb-2">Bank Account Details:</h4>
+                                                    {purchaseInfo.bank_accounts.map((account, index) => (
+                                                        <div key={index} className="p-3 bg-white rounded border">
+                                                            <p><strong>Bank:</strong> {account.bank_name}</p>
+                                                            <p><strong>Account Name:</strong> {account.account_name}</p>
+                                                            <p><strong>Account Number:</strong> {account.account_number}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     <form onSubmit={handlePaymentProofSubmit} className="space-y-4">
                                         <div>
                                             <Label htmlFor="payment_file">Payment Proof *</Label>
@@ -403,6 +472,9 @@ const CourseDetail: FC = () => {
                                                     File selected: {paymentFile.name}
                                                 </p>
                                             )}
+                                            <p className="text-sm text-gray-600 mt-1">
+                                                Please upload a screenshot or photo of your payment receipt/confirmation.
+                                            </p>
                                         </div>
                                         
                                         <div className="flex space-x-2">
@@ -437,6 +509,36 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         {applicationStatus === 'REJECTED' && <p className="text-center text-red-500">Enrollment Rejected</p>}
+                        
+                        {paymentSubmitted && (
+                            <Card className="mt-6 border-green-200 bg-green-50">
+                                <CardContent className="p-6">
+                                    <div className="text-center">
+                                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-xl font-semibold text-green-800 mb-2">
+                                            Payment Proof Submitted Successfully!
+                                        </h3>
+                                        <p className="text-green-700 mb-4">
+                                            Your enrollment is being processed. Our admin team will review your payment proof and approve your enrollment within 24 hours.
+                                        </p>
+                                        <div className="bg-white rounded-lg p-4 border border-green-200">
+                                            <p className="text-sm text-green-600">
+                                                <strong>What happens next?</strong>
+                                            </p>
+                                            <ul className="text-sm text-green-600 mt-2 space-y-1">
+                                                <li>• Admin will verify your payment proof</li>
+                                                <li>• You'll receive confirmation within 24 hours</li>
+                                                <li>• Once approved, you'll have full access to the course</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <div className="mt-8">
                             <h3 className="text-2xl font-bold mb-4">Course Content</h3>
