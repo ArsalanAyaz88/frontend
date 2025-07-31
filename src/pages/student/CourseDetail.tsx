@@ -90,16 +90,35 @@ const CourseDetail: FC = () => {
 
             setIsLoading(true);
             try {
-                // Fetch course details
-                const courseResponse = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
-                const courseData = await handleApiResponse<CourseInfo>(courseResponse);
-                setCourse(courseData);
-
-                // Check if course is enrolled
+                // First check if course is enrolled
                 const enrolledResponse = await fetchWithAuth('/api/courses/my-courses');
                 const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledResponse);
-                const isCourseEnrolled = enrolledCourses.some(course => course.id === courseId);
+                const enrolledCourse = enrolledCourses.find(course => course.id === courseId);
+                const isCourseEnrolled = !!enrolledCourse;
                 setIsEnrolled(isCourseEnrolled);
+
+                // Try to fetch detailed course info from explore courses
+                try {
+                    const courseResponse = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
+                    const courseData = await handleApiResponse<CourseInfo>(courseResponse);
+                    setCourse(courseData);
+                } catch (exploreError) {
+                    // If explore course fetch fails, create a basic course object from enrolled course data
+                    if (enrolledCourse) {
+                        const basicCourse: CourseInfo = {
+                            id: enrolledCourse.id,
+                            title: enrolledCourse.title,
+                            description: `Course: ${enrolledCourse.title}`,
+                            price: 0, // Default price for enrolled courses
+                            instructor_name: enrolledCourse.instructor || 'Instructor',
+                            image_url: enrolledCourse.thumbnail_url || '',
+                            sections: [] // Empty sections for enrolled courses
+                        };
+                        setCourse(basicCourse);
+                    } else {
+                        throw new Error('Course not found in enrolled or explore courses');
+                    }
+                }
 
             } catch (err) {
                 if (err instanceof UnauthorizedError) {
@@ -251,6 +270,33 @@ const CourseDetail: FC = () => {
 
     const handleVideoSelect = (video: Video) => {
         setSelectedVideo(video);
+    };
+
+    const handleVideoToggleWatched = async (video: Video) => {
+        setCompletingVideoId(video.id);
+        try {
+            // Use the same endpoint for both watched and unwatched - backend handles the toggle
+            await fetchWithAuth(`/api/courses/videos/${video.id}/complete`, {
+                method: 'POST',
+            });
+            
+            // Toggle the local state
+            const newWatchedState = !video.watched;
+            setVideos(prevVideos => 
+                prevVideos.map(v => 
+                    v.id === video.id ? { ...v, watched: newWatchedState } : v
+                )
+            );
+            setSelectedVideo(prev => prev?.id === video.id ? { ...prev, watched: newWatchedState } : prev);
+            
+            // Show appropriate success message
+            toast.success(newWatchedState ? 'Video marked as completed!' : 'Video marked as unwatched!');
+        } catch (error) {
+            console.error('Failed to toggle video status:', error);
+            toast.error('Failed to update video status.');
+        } finally {
+            setCompletingVideoId(null);
+        }
     };
 
     // handlePaymentProofSubmit, handlePaymentFileChange, fetchPurchaseInfo, handleShowPaymentForm, handleVideoSelect, handleVideoPlay
@@ -484,6 +530,53 @@ const CourseDetail: FC = () => {
                                                                         )}
                                                                     </Badge>
                                                                 </div>
+                                                                <div className="flex items-center justify-between mt-4">
+                                                                    <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
+                                                                        {completingVideoId === selectedVideo.id ? (
+                                                                            <>
+                                                                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                                                Updating...
+                                                                            </>
+                                                                        ) : selectedVideo.watched ? (
+                                                                            "Watched"
+                                                                        ) : (
+                                                                            "Not Watched"
+                                                                        )}
+                                                                    </Badge>
+                                                                    
+                                                                    <Button
+                                                                        onClick={() => handleVideoToggleWatched(selectedVideo)}
+                                                                        disabled={completingVideoId === selectedVideo.id}
+                                                                        variant={selectedVideo.watched ? "outline" : "default"}
+                                                                        size="sm"
+                                                                        className={`transition-all duration-300 ${
+                                                                            selectedVideo.watched 
+                                                                                ? "border-orange-500 text-orange-600 hover:bg-orange-50 hover:border-orange-600" 
+                                                                                : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg hover:shadow-xl"
+                                                                        }`}
+                                                                    >
+                                                                        {completingVideoId === selectedVideo.id ? (
+                                                                            <>
+                                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                                Updating...
+                                                                            </>
+                                                                        ) : selectedVideo.watched ? (
+                                                                            <>
+                                                                                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                                </svg>
+                                                                                Mark as Unwatched
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                                </svg>
+                                                                                Mark as Watched
+                                                                            </>
+                                                                        )}
+                                                                    </Button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -526,18 +619,47 @@ const CourseDetail: FC = () => {
                                                                             {video.description}
                                                                         </p>
                                                                     </div>
-                                                                    <Badge 
-                                                                        variant={video.watched ? "default" : "secondary"}
-                                                                        className="ml-2 text-xs"
-                                                                    >
-                                                                        {completingVideoId === video.id ? (
-                                                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                                                        ) : video.watched ? (
-                                                                            "✓"
-                                                                        ) : (
-                                                                            "○"
-                                                                        )}
-                                                                    </Badge>
+                                                                    <div className="flex items-center space-x-2">
+                                                                        <Badge 
+                                                                            variant={video.watched ? "default" : "secondary"}
+                                                                            className="text-xs"
+                                                                        >
+                                                                            {completingVideoId === video.id ? (
+                                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                                            ) : video.watched ? (
+                                                                                "✓"
+                                                                            ) : (
+                                                                                "○"
+                                                                            )}
+                                                                        </Badge>
+                                                                        
+                                                                        <Button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleVideoToggleWatched(video);
+                                                                            }}
+                                                                            disabled={completingVideoId === video.id}
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className={`h-6 w-6 p-0 transition-all duration-200 ${
+                                                                                video.watched 
+                                                                                    ? "text-orange-500 hover:text-orange-600 hover:bg-orange-50" 
+                                                                                    : "text-green-500 hover:text-green-600 hover:bg-green-50"
+                                                                            }`}
+                                                                        >
+                                                                            {completingVideoId === video.id ? (
+                                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                                            ) : video.watched ? (
+                                                                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                                </svg>
+                                                                            ) : (
+                                                                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                                </svg>
+                                                                            )}
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         ))}
