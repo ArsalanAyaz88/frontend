@@ -190,7 +190,7 @@ const CourseDetail: FC = () => {
 
         // Validate form
         if (!enrollmentForm.first_name || !enrollmentForm.last_name || !enrollmentForm.qualification || 
-            !enrollmentForm.ultrasound_experience || !enrollmentForm.contact_number) {
+            !enrollmentForm.contact_number) {
             toast.error('Please fill in all required fields.');
             return;
         }
@@ -219,10 +219,27 @@ const CourseDetail: FC = () => {
             });
             await handleApiResponse(response);
             toast.success('Enrollment application submitted successfully!');
-            // setApplicationStatus('PENDING'); // This state is no longer needed
             setShowEnrollmentForm(false);
         } catch (error) {
-            toast.error('Failed to submit enrollment application.');
+            console.error('Enrollment submission error:', error);
+            let errorMessage = 'Failed to submit enrollment application.';
+            
+            if (error instanceof UnauthorizedError) {
+                errorMessage = 'Session expired. Please log in again.';
+                navigate('/login');
+            } else if (error instanceof Error) {
+                // Attempt to parse a JSON error response if possible
+                try {
+                    const errJson = JSON.parse(error.message);
+                    if (errJson.detail) {
+                        errorMessage = errJson.detail;
+                    }
+                } catch (e) {
+                    // Not a JSON error, use the generic message
+                }
+            }
+            
+            toast.error(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
@@ -403,13 +420,12 @@ const CourseDetail: FC = () => {
                                                 </div>
                                                 
                                                 <div>
-                                                    <Label htmlFor="ultrasound_experience">Ultrasound Experience *</Label>
+                                                    <Label htmlFor="ultrasound_experience">Ultrasound Experience</Label>
                                                     <Textarea
                                                         id="ultrasound_experience"
                                                         value={enrollmentForm.ultrasound_experience}
                                                         onChange={(e) => handleInputChange('ultrasound_experience', e.target.value)}
-                                                        placeholder="Describe your experience with ultrasound technology"
-                                                        required
+                                                        placeholder="Describe your experience with ultrasound technology (optional)"
                                                     />
                                                 </div>
                                                 
