@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,21 +27,12 @@ interface ExploreCourse {
   thumbnail_url: string;
 }
 
-interface Video {
-  id: string;
-  cloudinary_url: string;
-  title: string;
-  description: string;
-  watched: boolean;
-}
-
 const Courses = () => {
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
   const [exploreCourses, setExploreCourses] = useState<ExploreCourse[]>([]);
   const [isEnrolledLoading, setIsEnrolledLoading] = useState(true);
   const [isExploreLoading, setIsExploreLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchEnrolledCourses = async () => {
@@ -76,23 +67,6 @@ const Courses = () => {
     fetchExploreCourses();
   }, []);
 
-  const handleCourseClick = async (courseId: string) => {
-    try {
-      // Fetch videos with checkpoint data for the selected course
-      const response = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-checkpoint`);
-      const videos = await handleApiResponse<Video[]>(response);
-      
-      // Navigate to the course detail page with the videos data
-      navigate(`/student/courses/${courseId}`, { 
-        state: { videos, courseId } 
-      });
-    } catch (err) {
-      console.error('Failed to fetch course videos:', err);
-      // If videos fetch fails, still navigate to course detail page
-      navigate(`/student/courses/${courseId}`);
-    }
-  };
-
   return (
     <DashboardLayout userType="student">
       <div className="container mx-auto px-4 py-8">
@@ -112,11 +86,7 @@ const Courses = () => {
             ) : enrolledCourses.length > 0 ? (
               <div className="grid gap-6 mt-6 md:grid-cols-2 lg:grid-cols-3">
                 {enrolledCourses.map((course) => (
-                  <div 
-                    key={course.id} 
-                    className="block hover:no-underline cursor-pointer"
-                    onClick={() => handleCourseClick(course.id)}
-                  >
+                  <Link to={`/student/courses/${course.id}`} key={course.id} className="block hover:no-underline">
                     <Card className="overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-xl h-full flex flex-col">
                       <img src={course.thumbnail_url || `https://placehold.co/600x400/000000/FFFFFF?text=${course.title.split(' ')[0]}`} alt={course.title} className="w-full h-48 object-cover" />
                       <div className="p-4 flex flex-col flex-grow">
@@ -153,7 +123,7 @@ const Courses = () => {
                         </div>
                       </div>
                     </Card>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
