@@ -190,7 +190,7 @@ const CourseDetail: FC = () => {
 
         // Validate form
         if (!enrollmentForm.first_name || !enrollmentForm.last_name || !enrollmentForm.qualification || 
-            !enrollmentForm.contact_number) {
+            !enrollmentForm.ultrasound_experience || !enrollmentForm.contact_number) {
             toast.error('Please fill in all required fields.');
             return;
         }
@@ -219,27 +219,10 @@ const CourseDetail: FC = () => {
             });
             await handleApiResponse(response);
             toast.success('Enrollment application submitted successfully!');
+            // setApplicationStatus('PENDING'); // This state is no longer needed
             setShowEnrollmentForm(false);
         } catch (error) {
-            console.error('Enrollment submission error:', error);
-            let errorMessage = 'Failed to submit enrollment application.';
-            
-            if (error instanceof UnauthorizedError) {
-                errorMessage = 'Session expired. Please log in again.';
-                navigate('/login');
-            } else if (error instanceof Error) {
-                // Attempt to parse a JSON error response if possible
-                try {
-                    const errJson = JSON.parse(error.message);
-                    if (errJson.detail) {
-                        errorMessage = errJson.detail;
-                    }
-                } catch (e) {
-                    // Not a JSON error, use the generic message
-                }
-            }
-            
-            toast.error(errorMessage);
+            toast.error('Failed to submit enrollment application.');
         } finally {
             setIsSubmitting(false);
         }
@@ -366,9 +349,9 @@ const CourseDetail: FC = () => {
                     </CardHeader>
                     <CardContent className="p-6">
                         <div className="mb-6">
-                            <h3 className="text-2xl font-bold mb-4 text-foreground">Course Description</h3>
-                            <div className="bg-muted/50 rounded-lg p-6 border-l-4 border-primary">
-                                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{course.description}</p>
+                            <h3 className="text-xl font-semibold mb-3 text-gray-800">Course Description</h3>
+                            <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+                                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{course.description}</p>
                             </div>
                         </div>
                         
@@ -420,12 +403,13 @@ const CourseDetail: FC = () => {
                                                 </div>
                                                 
                                                 <div>
-                                                    <Label htmlFor="ultrasound_experience">Ultrasound Experience</Label>
+                                                    <Label htmlFor="ultrasound_experience">Ultrasound Experience *</Label>
                                                     <Textarea
                                                         id="ultrasound_experience"
                                                         value={enrollmentForm.ultrasound_experience}
                                                         onChange={(e) => handleInputChange('ultrasound_experience', e.target.value)}
-                                                        placeholder="Describe your experience with ultrasound technology (optional)"
+                                                        placeholder="Describe your experience with ultrasound technology"
+                                                        required
                                                     />
                                                 </div>
                                                 
