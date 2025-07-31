@@ -1,9 +1,12 @@
-import { useState, useEffect, FC } from 'react';
+import { useState, useEffect, FC, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Upload } from 'lucide-react';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 
@@ -27,16 +30,35 @@ interface ApplicationStatusResponse {
     status: 'NOT_APPLIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
+interface EnrollmentFormData {
+    first_name: string;
+    last_name: string;
+    qualification: string;
+    ultrasound_experience: string;
+    contact_number: string;
+    qualification_certificate: File | null;
+}
 
 const CourseDetail: FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
     const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResponse['status'] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showEnrollmentForm, setShowEnrollmentForm] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [enrollmentForm, setEnrollmentForm] = useState<EnrollmentFormData>({
+        first_name: '',
+        last_name: '',
+        qualification: '',
+        ultrasound_experience: '',
+        contact_number: '',
+        qualification_certificate: null
+    });
 
     useEffect(() => {
         const fetchCourseAndStatus = async () => {
@@ -74,15 +96,65 @@ const CourseDetail: FC = () => {
         fetchCourseAndStatus();
     }, [courseId, navigate]);
 
-    const handleEnroll = async () => {
+    const handleEnroll = () => {
+        setShowEnrollmentForm(true);
+    };
+
+    const handleFormSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (!courseId) return;
+
+        // Validate form
+        if (!enrollmentForm.first_name || !enrollmentForm.last_name || !enrollmentForm.qualification || 
+            !enrollmentForm.ultrasound_experience || !enrollmentForm.contact_number) {
+            toast.error('Please fill in all required fields.');
+            return;
+        }
+
+        if (!enrollmentForm.qualification_certificate) {
+            toast.error('Please upload your qualification certificate.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        
         try {
-            const response = await fetchWithAuth(`/api/enrollments/apply/${courseId}`, { method: 'POST' });
+            // Create form data with required fields
+            const formData = new FormData();
+            formData.append('first_name', enrollmentForm.first_name);
+            formData.append('last_name', enrollmentForm.last_name);
+            formData.append('qualification', enrollmentForm.qualification);
+            formData.append('ultrasound_experience', enrollmentForm.ultrasound_experience);
+            formData.append('contact_number', enrollmentForm.contact_number);
+            formData.append('course_id', courseId);
+            formData.append('qualification_certificate', enrollmentForm.qualification_certificate);
+            
+            const response = await fetchWithAuth(`/api/enrollments/apply`, { 
+                method: 'POST',
+                body: formData,
+            });
             await handleApiResponse(response);
             toast.success('Enrollment application submitted successfully!');
             setApplicationStatus('PENDING');
+            setShowEnrollmentForm(false);
         } catch (error) {
             toast.error('Failed to submit enrollment application.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleInputChange = (field: keyof EnrollmentFormData, value: string | File | null) => {
+        setEnrollmentForm(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            handleInputChange('qualification_certificate', file);
         }
     };
 
@@ -133,10 +205,126 @@ const CourseDetail: FC = () => {
                     <CardContent className="p-6">
                         <p className="text-muted-foreground mb-6">{course.description}</p>
                         
-                        {applicationStatus === 'NOT_APPLIED' && (
+                        {applicationStatus === 'NOT_APPLIED' && !showEnrollmentForm && (
                             <Button onClick={handleEnroll} size="lg" className="w-full">
                                 Enroll Now (${course.price})
                             </Button>
+                        )}
+                        {applicationStatus === 'NOT_APPLIED' && showEnrollmentForm && (
+                            <Card className="mt-6">
+                                <CardHeader>
+                                    <CardTitle>Enrollment Application</CardTitle>
+                                    <CardDescription>Please fill in your details to apply for this course.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <form onSubmit={handleFormSubmit} className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <Label htmlFor="first_name">First Name *</Label>
+                                                <Input
+                                                    id="first_name"
+                                                    value={enrollmentForm.first_name}
+                                                    onChange={(e) => handleInputChange('first_name', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="last_name">Last Name *</Label>
+                                                <Input
+                                                    id="last_name"
+                                                    value={enrollmentForm.last_name}
+                                                    onChange={(e) => handleInputChange('last_name', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="qualification">Qualification *</Label>
+                                            <Input
+                                                id="qualification"
+                                                value={enrollmentForm.qualification}
+                                                onChange={(e) => handleInputChange('qualification', e.target.value)}
+                                                placeholder="e.g., Bachelor's in Medical Imaging"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="ultrasound_experience">Ultrasound Experience *</Label>
+                                            <Textarea
+                                                id="ultrasound_experience"
+                                                value={enrollmentForm.ultrasound_experience}
+                                                onChange={(e) => handleInputChange('ultrasound_experience', e.target.value)}
+                                                placeholder="Describe your experience with ultrasound technology"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="contact_number">Contact Number *</Label>
+                                            <Input
+                                                id="contact_number"
+                                                value={enrollmentForm.contact_number}
+                                                onChange={(e) => handleInputChange('contact_number', e.target.value)}
+                                                placeholder="+1234567890"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="qualification_certificate">Qualification Certificate *</Label>
+                                            <div className="flex items-center space-x-2">
+                                                <Input
+                                                    id="qualification_certificate"
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    onChange={handleFileChange}
+                                                    ref={fileInputRef}
+                                                    required
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                >
+                                                    <Upload className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            {enrollmentForm.qualification_certificate && (
+                                                <p className="text-sm text-green-600 mt-1">
+                                                    File selected: {enrollmentForm.qualification_certificate.name}
+                                                </p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex space-x-2">
+                                            <Button
+                                                type="submit"
+                                                disabled={isSubmitting}
+                                                className="flex-1"
+                                            >
+                                                {isSubmitting ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Submitting...
+                                                    </>
+                                                ) : (
+                                                    'Submit Application'
+                                                )}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => setShowEnrollmentForm(false)}
+                                                disabled={isSubmitting}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </CardContent>
+                            </Card>
                         )}
                         {applicationStatus === 'PENDING' && <p className="text-center text-yellow-500">Enrollment Pending</p>}
                         {applicationStatus === 'APPROVED' && <p className="text-center text-green-500">Enrolled</p>}
