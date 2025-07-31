@@ -1,10 +1,11 @@
 import { useEffect, useState, FC } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, PlayCircle, Lock, CheckCircle } from 'lucide-react';
+import { fetchWithAuth, handleApiResponse } from '@/lib/api';
 
 // --- INTERFACES ---
 interface Course {
@@ -14,11 +15,10 @@ interface Course {
 }
 
 interface Video {
-  id: number;
+  id: string;
+  cloudinary_url: string;
   title: string;
-  video_url: string;
   description: string;
-  is_accessible: boolean;
   watched: boolean;
 }
 
@@ -26,6 +26,7 @@ interface Video {
 const MyCourseDetail: FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   // --- STATE ---
@@ -42,66 +43,63 @@ const MyCourseDetail: FC = () => {
     if (!courseId) return;
 
     const fetchCourseDetails = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError("Authentication token not found.");
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch(`/api/courses/${courseId}/videos`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setCourse(data.course);
-          setVideos(data.videos);
-          const firstAccessibleVideo = data.videos.find((v: Video) => v.is_accessible);
-          if (firstAccessibleVideo) {
-            setSelectedVideo(firstAccessibleVideo);
-          } else if (data.videos.length > 0) {
-            setSelectedVideo(data.videos[0]);
+        setIsLoading(true);
+        
+        // Check if videos data was passed via navigation state
+        const stateVideos = location.state?.videos as Video[];
+        
+        if (stateVideos && Array.isArray(stateVideos)) {
+          // Use videos data from navigation state
+          setVideos(stateVideos);
+          if (stateVideos.length > 0) {
+            setSelectedVideo(stateVideos[0]);
           }
         } else {
-          setError('Failed to fetch course details.');
+          // Fetch videos with checkpoint data using the new API endpoint
+          const response = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-checkpoint`);
+          const videosData = await handleApiResponse<Video[]>(response);
+          
+          setVideos(videosData);
+          
+          // Set the first video as selected if available
+          if (videosData.length > 0) {
+            setSelectedVideo(videosData[0]);
+          }
         }
+        
+        // For now, we'll create a basic course object since the API doesn't return course details
+        // You might want to fetch course details from a separate endpoint if needed
+        setCourse({
+          id: parseInt(courseId),
+          title: `Course ${courseId}`,
+          description: 'Course description will be loaded from a separate endpoint if needed.'
+        });
+        
       } catch (err) {
-        setError('An error occurred while fetching course details.');
+        console.error('Failed to fetch course details:', err);
+        setError('Failed to load course details. Please try again later.');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchCourseDetails();
-  }, [courseId]);
+  }, [courseId, location.state]);
 
   useEffect(() => {
     if (!courseId) return;
 
     const fetchEnrollmentStatus = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       try {
         setStatusLoading(true);
-        const response = await fetch(`/api/courses/my-courses/${courseId}/enrollment-status`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setEnrollmentStatus(data.status);
-        } else if (response.status === 404) {
-           setEnrollmentStatus('NOT_APPLIED');
-        } else {
-           console.error("Failed to fetch enrollment status:", response);
-           setEnrollmentStatus('ERROR');
-        }
+        const response = await fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
+        const data = await handleApiResponse<{ status: string }>(response);
+        setEnrollmentStatus(data.status);
       } catch (error) {
         console.error('Error fetching enrollment status:', error);
-        setEnrollmentStatus('ERROR');
+        // If the endpoint doesn't exist or returns 404, assume NOT_APPLIED
+        setEnrollmentStatus('NOT_APPLIED');
       } finally {
         setStatusLoading(false);
       }
@@ -112,14 +110,6 @@ const MyCourseDetail: FC = () => {
 
   // --- HANDLERS ---
   const handleVideoSelect = (video: Video) => {
-    if (!video.is_accessible) {
-      toast({
-        title: "Access Denied",
-        description: "You must enroll in the course to watch this video.",
-        variant: "destructive",
-      });
-      return;
-    }
     setSelectedVideo(video);
   };
 
@@ -177,14 +167,15 @@ const MyCourseDetail: FC = () => {
               <CardContent className="p-0">
                 {selectedVideo ? (
                   <div className="aspect-video">
-                    <iframe
+                    <video
                       key={selectedVideo.id}
                       className="w-full h-full"
-                      src={selectedVideo.video_url.includes('youtube.com') ? selectedVideo.video_url.replace('watch?v=', 'embed/') : selectedVideo.video_url}
+                      controls
+                      src={selectedVideo.cloudinary_url}
                       title={selectedVideo.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
+                    >
+                      Your browser does not support the video tag.
+                    </video>
                   </div>
                 ) : (
                   <div className="aspect-video bg-muted flex items-center justify-center">
@@ -225,14 +216,10 @@ const MyCourseDetail: FC = () => {
                         selectedVideo?.id === video.id ? 'bg-muted' : 'hover:bg-muted/50'
                       }`}
                     >
-                      {video.is_accessible ? (
-                        video.watched ? (
-                          <CheckCircle className="h-5 w-5 mr-3 text-green-500 flex-shrink-0" />
-                        ) : (
-                          <PlayCircle className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
-                        )
+                      {video.watched ? (
+                        <CheckCircle className="h-5 w-5 mr-3 text-green-500 flex-shrink-0" />
                       ) : (
-                        <Lock className="h-5 w-5 mr-3 text-red-500 flex-shrink-0" />
+                        <PlayCircle className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
                       )}
                       <span className="flex-grow">{video.title}</span>
                     </li>

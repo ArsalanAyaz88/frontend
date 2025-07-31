@@ -74,6 +74,7 @@ const CourseDetail: FC = () => {
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
     const paymentSectionRef = useRef<HTMLDivElement>(null);
+    const enrollmentFormRef = useRef<HTMLDivElement>(null);
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
     const [paymentSubmitted, setPaymentSubmitted] = useState(false);
@@ -128,6 +129,14 @@ const CourseDetail: FC = () => {
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
+        
+        // Scroll to enrollment form after a short delay to ensure it's rendered
+        setTimeout(() => {
+            enrollmentFormRef.current?.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }, 100);
     };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
@@ -304,7 +313,7 @@ const CourseDetail: FC = () => {
                             </Button>
                         )}
                         {applicationStatus === 'NOT_APPLIED' && showEnrollmentForm && (
-                            <Card className="mt-6">
+                            <Card className="mt-6" ref={enrollmentFormRef}>
                                 <CardHeader>
                                     <CardTitle>Enrollment Application</CardTitle>
                                     <CardDescription>Please fill in your details to apply for this course.</CardDescription>
