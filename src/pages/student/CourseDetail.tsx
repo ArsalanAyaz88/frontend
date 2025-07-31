@@ -414,11 +414,10 @@ const CourseDetail: FC = () => {
                         {applicationStatus === 'PENDING' && <p className="text-center text-yellow-500">Enrollment Pending</p>}
                         {applicationStatus === 'APPROVED' && !showPaymentForm && !paymentSubmitted && (
                             <div className="text-center">
-                                <p className="text-green-500 mb-4">Enrollment Approved!</p>
                                 <Button 
                                     onClick={handleShowPaymentForm} 
                                     size="lg" 
-                                    className="w-full"
+                                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
                                     disabled={isLoadingPurchaseInfo}
                                 >
                                     {isLoadingPurchaseInfo ? (
@@ -440,21 +439,21 @@ const CourseDetail: FC = () => {
                                 </CardHeader>
                                 <CardContent>
                                     {purchaseInfo && (
-                                        <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                                            <h3 className="text-xl font-bold mb-4 text-blue-800">Payment Details</h3>
-                                            <div className="space-y-3">
-                                                <div className="p-3 bg-white rounded-lg border border-blue-200">
-                                                    <p className="text-lg"><span className="font-semibold text-blue-800">Course:</span> {purchaseInfo.course_title}</p>
-                                                    <p className="text-lg"><span className="font-semibold text-blue-800">Amount:</span> <span className="text-green-600 font-bold">${purchaseInfo.course_price.toLocaleString()}</span></p>
+                                        <div className="mb-6 p-6 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg shadow-lg">
+                                            <h3 className="text-xl font-bold mb-4 text-purple-800">Payment Details</h3>
+                                            <div className="space-y-4">
+                                                <div className="p-4 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg border border-purple-300">
+                                                    <p className="text-lg mb-2"><span className="font-semibold text-purple-800">Course:</span> <span className="text-gray-800 font-medium">{purchaseInfo.course_title}</span></p>
+                                                    <p className="text-lg"><span className="font-semibold text-purple-800">Amount:</span> <span className="text-green-700 font-bold text-xl">${purchaseInfo.course_price.toLocaleString()}</span></p>
                                                 </div>
                                                 
                                                 <div className="mt-4">
-                                                    <h4 className="font-bold mb-3 text-blue-800">Bank Account Details:</h4>
+                                                    <h4 className="font-bold mb-3 text-purple-800">Bank Account Details:</h4>
                                                     {purchaseInfo.bank_accounts.map((account, index) => (
-                                                        <div key={index} className="p-4 bg-white rounded-lg border-2 border-blue-300 shadow-sm">
-                                                            <p className="mb-2"><span className="font-semibold text-blue-800">Bank:</span> {account.bank_name}</p>
-                                                            <p className="mb-2"><span className="font-semibold text-blue-800">Account Name:</span> {account.account_name}</p>
-                                                            <p><span className="font-semibold text-blue-800">Account Number:</span> <span className="font-mono bg-gray-100 px-2 py-1 rounded">{account.account_number}</span></p>
+                                                        <div key={index} className="p-4 bg-gradient-to-r from-white to-purple-50 rounded-lg border-2 border-purple-300 shadow-md">
+                                                            <p className="mb-2"><span className="font-semibold text-purple-800">Bank:</span> <span className="text-gray-800 font-medium">{account.bank_name}</span></p>
+                                                            <p className="mb-2"><span className="font-semibold text-purple-800">Account Name:</span> <span className="text-gray-800 font-medium">{account.account_name}</span></p>
+                                                            <p><span className="font-semibold text-purple-800">Account Number:</span> <span className="font-mono bg-purple-200 text-purple-900 px-3 py-1 rounded-md border border-purple-400 font-bold">{account.account_number}</span></p>
                                                         </div>
                                                     ))}
                                                 </div>
