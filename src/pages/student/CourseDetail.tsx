@@ -241,6 +241,14 @@ const CourseDetail: FC = () => {
             await fetchPurchaseInfo();
         }
         setShowPaymentForm(true);
+        
+        // Scroll to payment form after a short delay to ensure it's rendered
+        setTimeout(() => {
+            paymentSectionRef.current?.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }, 100);
     };
 
     if (isLoading) {
@@ -411,7 +419,7 @@ const CourseDetail: FC = () => {
                                 </CardContent>
                             </Card>
                         )}
-                        {applicationStatus === 'PENDING' && <p className="text-center text-yellow-500">Enrollment Pending</p>}
+                        {applicationStatus === 'PENDING' && <p className="text-center text-yellow-500">Enrollment Request Application is pending</p>}
                         {applicationStatus === 'APPROVED' && !showPaymentForm && !paymentSubmitted && (
                             <div className="text-center">
                                 <Button 
