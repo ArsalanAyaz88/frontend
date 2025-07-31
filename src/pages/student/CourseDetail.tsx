@@ -54,7 +54,7 @@ const CourseDetail: FC = () => {
                 // Fetch main course details and status in parallel.
                 // The backend now provides a presigned URL directly in courseResponse.data.image_url.
                 const coursePromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
-                const statusPromise = fetchWithAuth(`/api/courses/${courseId}/enrollment-status`);
+                const statusPromise = fetchWithAuth(`/api/my-courses/${courseId}/enrollment-status`);
 
                 const [courseResponse, statusResponse] = await Promise.all([
                     handleApiResponse<ApiResponse<CourseInfo>>(await coursePromise),
