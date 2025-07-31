@@ -10,13 +10,13 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api/admin': {
-        target: 'https://student-portal-two-pearl.vercel.app',
+        target: 'https://student-portal-lms-seven.vercel.app',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
       '/api': {
-        target: 'https://student-portal-two-pearl.vercel.app',
+        target: 'https://student-portal-lms-seven.vercel.app',
         changeOrigin: true,
         secure: false,
       },
