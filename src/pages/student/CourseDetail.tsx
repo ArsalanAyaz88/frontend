@@ -78,6 +78,7 @@ const CourseDetail: FC = () => {
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
     const [isEnrolled, setIsEnrolled] = useState(false);
+    const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchCourseAndCheckEnrollment = async () => {
@@ -219,6 +220,37 @@ const CourseDetail: FC = () => {
         if (file) {
             handleInputChange('qualification_certificate', file);
         }
+    };
+
+    const handleVideoPlay = async (video: Video) => {
+        // Mark video as completed when played
+        if (!video.watched) {
+            setCompletingVideoId(video.id);
+            try {
+                await fetchWithAuth(`/api/courses/videos/${video.id}/complete`, {
+                    method: 'POST',
+                });
+                
+                // Update local state to mark video as watched
+                setVideos(prevVideos => 
+                    prevVideos.map(v => 
+                        v.id === video.id ? { ...v, watched: true } : v
+                    )
+                );
+                setSelectedVideo(prev => prev?.id === video.id ? { ...prev, watched: true } : prev);
+                
+                toast.success('Video marked as completed!');
+            } catch (error) {
+                console.error('Failed to mark video as completed:', error);
+                toast.error('Failed to mark video as completed.');
+            } finally {
+                setCompletingVideoId(null);
+            }
+        }
+    };
+
+    const handleVideoSelect = (video: Video) => {
+        setSelectedVideo(video);
     };
 
     // handlePaymentProofSubmit, handlePaymentFileChange, fetchPurchaseInfo, handleShowPaymentForm, handleVideoSelect, handleVideoPlay
@@ -421,10 +453,11 @@ const CourseDetail: FC = () => {
                                                                 <video
                                                                     className="w-full h-full rounded-t-lg"
                                                                     controls
+                                                                    controlsList="nodownload"
                                                                     src={selectedVideo.cloudinary_url}
                                                                     poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                                     onPlay={() => {
-                                                                        // handleVideoPlay(selectedVideo); // This function is no longer needed
+                                                                        handleVideoPlay(selectedVideo);
                                                                     }}
                                                                     onError={(e) => {
                                                                         console.error('Video loading error:', e);
@@ -439,7 +472,16 @@ const CourseDetail: FC = () => {
                                                                 <p className="text-muted-foreground">{selectedVideo.description}</p>
                                                                 <div className="flex items-center mt-2">
                                                                     <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
-                                                                        {selectedVideo.watched ? "Watched" : "Not Watched"}
+                                                                        {completingVideoId === selectedVideo.id ? (
+                                                                            <>
+                                                                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                                                Marking as completed...
+                                                                            </>
+                                                                        ) : selectedVideo.watched ? (
+                                                                            "Watched"
+                                                                        ) : (
+                                                                            "Not Watched"
+                                                                        )}
                                                                     </Badge>
                                                                 </div>
                                                             </div>
@@ -469,7 +511,7 @@ const CourseDetail: FC = () => {
                                                             <div
                                                                 key={video.id}
                                                                 onClick={() => {
-                                                                    setSelectedVideo(video);
+                                                                    handleVideoSelect(video);
                                                                 }}
                                                                 className={`p-3 rounded-lg cursor-pointer transition-colors ${
                                                                     selectedVideo?.id === video.id
@@ -488,7 +530,13 @@ const CourseDetail: FC = () => {
                                                                         variant={video.watched ? "default" : "secondary"}
                                                                         className="ml-2 text-xs"
                                                                     >
-                                                                        {video.watched ? "✓" : "○"}
+                                                                        {completingVideoId === video.id ? (
+                                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                                        ) : video.watched ? (
+                                                                            "✓"
+                                                                        ) : (
+                                                                            "○"
+                                                                        )}
                                                                     </Badge>
                                                                 </div>
                                                             </div>
