@@ -59,6 +59,7 @@ const CourseDetail: FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const enrollmentFormRef = useRef<HTMLDivElement>(null);
 
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
@@ -176,10 +177,10 @@ const CourseDetail: FC = () => {
         
         // Scroll to enrollment form after a short delay to ensure it's rendered
         setTimeout(() => {
-            // enrollmentFormRef.current?.scrollIntoView({ 
-            //     behavior: 'smooth', 
-            //     block: 'start' 
-            // });
+            enrollmentFormRef.current?.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
         }, 100);
     };
 
@@ -347,11 +348,16 @@ const CourseDetail: FC = () => {
                         <CardDescription>Taught by: {course.instructor_name}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
-                        <p className="text-muted-foreground mb-6">{course.description}</p>
+                        <div className="mb-6">
+                            <h3 className="text-xl font-semibold mb-3 text-gray-800">Course Description</h3>
+                            <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+                                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{course.description}</p>
+                            </div>
+                        </div>
                         
                         {/* Enrollment Form Section */}
                         {!isEnrolled && (
-                            <div className="mt-6">
+                            <div className="mt-6" ref={enrollmentFormRef}>
                                 {!showEnrollmentForm ? (
                                     <Button onClick={handleEnroll} size="lg" className="w-full">
                                         Enroll Request Application (${course.price})

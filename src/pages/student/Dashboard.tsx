@@ -100,7 +100,7 @@ const Dashboard = () => {
         }
 
         // 2. Request the certificate with the student's name.
-        const certResponse = await fetchWithAuth(`/api/courses/${courseId}/certificate?name=${encodeURIComponent(studentName)}`);
+        const certResponse = await fetchWithAuth(`/api/courses/courses/${courseId}/certificate?name=${encodeURIComponent(studentName)}`);
         const certData = await certResponse.json();
 
         if (certResponse.ok && certData.certificate_url) {
