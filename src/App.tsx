@@ -12,7 +12,6 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import StudentDashboard from "./pages/student/Dashboard";
 import StudentCourses from "./pages/student/Courses";
 import StudentCourseDetail from "./pages/student/CourseDetail";
-import MyCourseDetail from "./pages/student/MyCourseDetail";
 import EnrollmentApplication from "./pages/student/EnrollmentApplication";
 import StudentAssignments from "./pages/student/Assignments";
 import StudentAssignmentDetail from "./pages/student/AssignmentDetail";
@@ -57,7 +56,7 @@ const App = () => (
           <Route path="/student/courses" element={<StudentCourses />} />
           <Route path="/student/courses/:courseId" element={<StudentCourseDetail />} />
           <Route path="/student/apply/:courseId" element={<EnrollmentApplication />} />
-          <Route path="/student/my-courses/:courseId" element={<MyCourseDetail />} />
+          <Route path="/student/my-courses/:courseId" element={<StudentCourseDetail />} />
           <Route path="/student/assignments" element={<StudentAssignments />} />
           <Route path="/student/assignments/:courseId/:assignmentId" element={<StudentAssignmentDetail />} />
           <Route path="/student/quizzes" element={<StudentQuizzes />} />
