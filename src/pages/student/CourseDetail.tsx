@@ -57,11 +57,11 @@ const CourseDetail: FC = () => {
 
                 const [courseResponse, statusResponse] = await Promise.all([
                     handleApiResponse<ApiResponse<CourseInfo>>(await coursePromise),
-                    handleApiResponse<ApiResponse<ApplicationStatusResponse>>(await statusPromise),
+                    handleApiResponse<ApplicationStatusResponse>(await statusPromise),
                 ]);
 
                 setCourse(courseResponse.data);
-                setApplicationStatus(statusResponse.data.status);
+                setApplicationStatus(statusResponse.status);
 
             } catch (err) {
                 if (err instanceof UnauthorizedError) {
