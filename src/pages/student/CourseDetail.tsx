@@ -59,6 +59,10 @@ const CourseDetail: FC = () => {
         contact_number: '',
         qualification_certificate: null
     });
+    const [showPaymentForm, setShowPaymentForm] = useState(false);
+    const [paymentFile, setPaymentFile] = useState<File | null>(null);
+    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+    const paymentFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const fetchCourseAndStatus = async () => {
@@ -155,6 +159,38 @@ const CourseDetail: FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             handleInputChange('qualification_certificate', file);
+        }
+    };
+
+    const handlePaymentProofSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!courseId || !paymentFile) return;
+
+        setIsSubmittingPayment(true);
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', paymentFile);
+            
+            const response = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof`, { 
+                method: 'POST',
+                body: formData,
+            });
+            await handleApiResponse(response);
+            toast.success('Payment proof submitted successfully!');
+            setShowPaymentForm(false);
+            setPaymentFile(null);
+        } catch (error) {
+            toast.error('Failed to submit payment proof.');
+        } finally {
+            setIsSubmittingPayment(false);
+        }
+    };
+
+    const handlePaymentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setPaymentFile(file);
         }
     };
 
@@ -327,7 +363,79 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         {applicationStatus === 'PENDING' && <p className="text-center text-yellow-500">Enrollment Pending</p>}
-                        {applicationStatus === 'APPROVED' && <p className="text-center text-green-500">Enrolled</p>}
+                        {applicationStatus === 'APPROVED' && !showPaymentForm && (
+                            <div className="text-center">
+                                <p className="text-green-500 mb-4">Enrollment Approved!</p>
+                                <Button onClick={() => setShowPaymentForm(true)} size="lg" className="w-full">
+                                    Submit Payment Proof
+                                </Button>
+                            </div>
+                        )}
+                        {applicationStatus === 'APPROVED' && showPaymentForm && (
+                            <Card className="mt-6">
+                                <CardHeader>
+                                    <CardTitle>Submit Payment Proof</CardTitle>
+                                    <CardDescription>Please upload your payment receipt or proof of payment.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <form onSubmit={handlePaymentProofSubmit} className="space-y-4">
+                                        <div>
+                                            <Label htmlFor="payment_file">Payment Proof *</Label>
+                                            <div className="flex items-center space-x-2">
+                                                <Input
+                                                    id="payment_file"
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    onChange={handlePaymentFileChange}
+                                                    ref={paymentFileInputRef}
+                                                    required
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => paymentFileInputRef.current?.click()}
+                                                >
+                                                    <Upload className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            {paymentFile && (
+                                                <p className="text-sm text-green-600 mt-1">
+                                                    File selected: {paymentFile.name}
+                                                </p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex space-x-2">
+                                            <Button
+                                                type="submit"
+                                                disabled={isSubmittingPayment}
+                                                className="flex-1"
+                                            >
+                                                {isSubmittingPayment ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Submitting...
+                                                    </>
+                                                ) : (
+                                                    'Submit Payment Proof'
+                                                )}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setShowPaymentForm(false);
+                                                    setPaymentFile(null);
+                                                }}
+                                                disabled={isSubmittingPayment}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </CardContent>
+                            </Card>
+                        )}
                         {applicationStatus === 'REJECTED' && <p className="text-center text-red-500">Enrollment Rejected</p>}
 
                         <div className="mt-8">
